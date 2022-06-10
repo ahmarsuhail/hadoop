@@ -48,12 +48,10 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.SdkBaseException;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.Headers;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
@@ -77,7 +75,10 @@ import com.amazonaws.event.ProgressListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
@@ -209,7 +210,9 @@ import static org.apache.hadoop.fs.s3a.commit.CommitConstants.FS_S3A_COMMITTER_S
 import static org.apache.hadoop.fs.s3a.impl.CallableSupplier.submit;
 import static org.apache.hadoop.fs.s3a.impl.CallableSupplier.waitForCompletionIgnoringExceptions;
 import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isObjectNotFound;
+import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isObjectNotFoundV2;
 import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isUnknownBucket;
+import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isUnknownBucketV2;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.AP_INACCESSIBLE;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.AP_REQUIRED_EXCEPTION;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.ARN_BUCKET_OPTION;
@@ -2171,7 +2174,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
   @InterfaceAudience.LimitedPrivate("utilities")
   @Retries.RetryTranslated
   @InterfaceStability.Evolving
-  public ObjectMetadata getObjectMetadata(Path path) throws IOException {
+  public HeadObjectResponse getObjectMetadata(Path path) throws IOException {
     return trackDurationAndSpan(INVOCATION_GET_FILE_STATUS, path, () ->
         getObjectMetadata(makeQualified(path), null, invoker,
             "getObjectMetadata"));
@@ -2187,7 +2190,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
    * @throws IOException IO and object access problems.
    */
   @Retries.RetryTranslated
-  private ObjectMetadata getObjectMetadata(Path path,
+  private HeadObjectResponse getObjectMetadata(Path path,
       ChangeTracker changeTracker, Invoker changeInvoker, String operation)
       throws IOException {
     String key = pathToKey(path);
@@ -2385,7 +2388,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
   @Retries.RetryRaw
   @VisibleForTesting
   @InterfaceAudience.LimitedPrivate("external utilities")
-  ObjectMetadata getObjectMetadata(String key) throws IOException {
+  HeadObjectResponse getObjectMetadata(String key) throws IOException {
     return getObjectMetadata(key, null, invoker, "getObjectMetadata");
   }
 
@@ -2402,14 +2405,13 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
    * @throws RemoteFileChangedException if an unexpected version is detected
    */
   @Retries.RetryRaw
-  protected ObjectMetadata getObjectMetadata(String key,
+  protected HeadObjectResponse getObjectMetadata(String key,
       ChangeTracker changeTracker,
       Invoker changeInvoker,
       String operation) throws IOException {
-    ObjectMetadata meta = changeInvoker.retryUntranslated("GET " + key, true,
+    HeadObjectResponse headResponse = changeInvoker.retryUntranslated("GET " + key, true,
         () -> {
-          GetObjectMetadataRequest request
-              = getRequestFactory().newGetObjectMetadataRequest(key);
+          HeadObjectRequest request = getRequestFactory().newHeadObjectRequest(key);
           incrementStatistic(OBJECT_METADATA_REQUESTS);
           DurationTracker duration = getDurationTrackerFactory()
               .trackDuration(ACTION_HTTP_HEAD_REQUEST.getSymbol());
@@ -2418,13 +2420,13 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
             if (changeTracker != null) {
               changeTracker.maybeApplyConstraint(request);
             }
-            ObjectMetadata objectMetadata = s3.getObjectMetadata(request);
+            HeadObjectResponse headObjectResponse = s3V2.headObject(request);
             if (changeTracker != null) {
-              changeTracker.processMetadata(objectMetadata, operation);
+              changeTracker.processMetadata(headObjectResponse, operation);
             }
-            return objectMetadata;
-          } catch(AmazonServiceException ase) {
-            if (!isObjectNotFound(ase)) {
+            return headObjectResponse;
+          } catch(AwsServiceException ase) {
+            if (!isObjectNotFoundV2(ase)) {
               // file not found is not considered a failure of the call,
               // so only switch the duration tracker to update failure
               // metrics on other exception outcomes.
@@ -2437,7 +2439,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
           }
         });
     incrementReadOperations();
-    return meta;
+    return headResponse;
   }
 
   /**
@@ -3449,29 +3451,32 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         && probes.contains(StatusProbeEnum.Head)) {
       try {
         // look for the simple file
-        ObjectMetadata meta = getObjectMetadata(key);
+        HeadObjectResponse objectMetadata = getObjectMetadata(key);
         LOG.debug("Found exact file: normal file {}", key);
-        long contentLength = meta.getContentLength();
+        long contentLength = objectMetadata.contentLength();
+        // TODO: Update during CSE work
         // check if CSE is enabled, then strip padded length.
-        if (isCSEEnabled
-            && meta.getUserMetaDataOf(Headers.CRYPTO_CEK_ALGORITHM) != null
-            && contentLength >= CSE_PADDING_LENGTH) {
-          contentLength -= CSE_PADDING_LENGTH;
-        }
+//        if (isCSEEnabled
+//            && objectMetadata.getUserMetaDataOf(Headers.CRYPTO_CEK_ALGORITHM) != null
+//            && contentLength >= CSE_PADDING_LENGTH) {
+//          contentLength -= CSE_PADDING_LENGTH;
+//        }
         return new S3AFileStatus(contentLength,
-            dateToLong(meta.getLastModified()),
+            objectMetadata.lastModified().toEpochMilli(),
             path,
             getDefaultBlockSize(path),
             username,
-            meta.getETag(),
-            meta.getVersionId());
-      } catch (AmazonServiceException e) {
+            objectMetadata.eTag(),
+            objectMetadata.versionId());
+      } catch (AwsServiceException e) {
         // if the response is a 404 error, it just means that there is
         // no file at that path...the remaining checks will be needed.
         // But: an empty bucket is also a 404, so check for that
         // and fail.
-        if (e.getStatusCode() != SC_404 || isUnknownBucket(e)) {
-          throw translateException("getFileStatus", path, e);
+        if (e.awsErrorDetails().sdkHttpResponse().statusCode() != SC_404 || isUnknownBucketV2(e)) {
+          throw e;
+          // TODO: Update during exception translation work
+          // throw translateException("getFileStatus", path, e);
         }
       } catch (AmazonClientException e) {
         throw translateException("getFileStatus", path, e);
@@ -3930,7 +3935,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     String action = "copyFile(" + srcKey + ", " + dstKey + ")";
     Invoker readInvoker = readContext.getReadInvoker();
 
-    ObjectMetadata srcom;
+    HeadObjectResponse srcom;
     try {
       srcom = once(action, srcKey,
           () ->
@@ -4360,10 +4365,10 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         ETAG_CHECKSUM_ENABLED_DEFAULT)) {
       return trackDurationAndSpan(INVOCATION_GET_FILE_CHECKSUM, path, () -> {
         LOG.debug("getFileChecksum({})", path);
-        ObjectMetadata headers = getObjectMetadata(path, null,
+        HeadObjectResponse headers = getObjectMetadata(path, null,
             invoker,
             "getFileChecksum are");
-        String eTag = headers.getETag();
+        String eTag = headers.eTag();
         return eTag != null ? new EtagChecksum(eTag) : null;
       });
     } else {
@@ -4445,7 +4450,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
       HeaderProcessing.HeaderProcessingCallbacks {
 
     @Override
-    public ObjectMetadata getObjectMetadata(final String key)
+    public HeadObjectResponse getObjectMetadata(final String key)
         throws IOException {
       return once("getObjectMetadata", key, () ->
           S3AFileSystem.this.getObjectMetadata(key));

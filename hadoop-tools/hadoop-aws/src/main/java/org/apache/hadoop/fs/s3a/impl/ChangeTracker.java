@@ -29,6 +29,8 @@ import com.amazonaws.services.s3.transfer.model.CopyResult;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -149,7 +151,7 @@ public class ChangeTracker {
   }
 
   public boolean maybeApplyConstraint(
-      final GetObjectMetadataRequest request) {
+      final HeadObjectRequest request) {
 
     if (policy.getMode() == ChangeDetectionPolicy.Mode.Server
         && revisionId != null) {
@@ -191,7 +193,9 @@ public class ChangeTracker {
       }
     }
 
-    processMetadata(object.getObjectMetadata(), operation);
+    // TODO: Will update during getObject operation work.
+    //  processMetadata now expects HeadObjectResponse which is not present when getting via sdkv1
+    // processMetadata(object.getObjectMetadata(), operation);
   }
 
   /**
@@ -249,14 +253,14 @@ public class ChangeTracker {
   /**
    * Process metadata response from server for validation against the change
    * policy.
-   * @param metadata metadata returned from server
+   * @param headObjectResponse head object response from server
    * @param operation operation in progress
    * @throws PathIOException raised on failure
    * @throws RemoteFileChangedException if the remote file has changed.
    */
-  public void processMetadata(final ObjectMetadata metadata,
+  public void processMetadata(final HeadObjectResponse headObjectResponse,
       final String operation) throws PathIOException {
-    final String newRevisionId = policy.getRevisionId(metadata, uri);
+    final String newRevisionId = policy.getRevisionId(headObjectResponse, uri);
     processNewRevision(newRevisionId, operation, -1);
   }
 
@@ -281,10 +285,7 @@ public class ChangeTracker {
       LOG.debug("Setting revision ID for object at {}: {}",
           uri, newRevisionId);
       revisionId = newRevisionId;
-      //TODO: Remove this. This is a temporary fix to prevent tests from failing. Needed because
-      // SDKV2 returns etag with quotation marks, and V1 does not use quotations so this equality
-      // fails. Regex removes quotation marks.
-    } else if (!revisionId.replaceAll("^\"|\"$", "").equals(newRevisionId)) {
+    } else if (!revisionId.equals(newRevisionId)) {
       LOG.debug("Revision ID changed from {} to {}",
           revisionId, newRevisionId);
       ImmutablePair<Boolean, RemoteFileChangedException> pair =

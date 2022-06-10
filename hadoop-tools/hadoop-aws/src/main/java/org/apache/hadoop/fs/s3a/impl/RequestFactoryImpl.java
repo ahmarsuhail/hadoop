@@ -48,6 +48,8 @@ import com.amazonaws.services.s3.model.UploadPartRequest;
 import org.apache.hadoop.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
@@ -270,6 +272,31 @@ public class RequestFactoryImpl implements RequestFactory {
     return createObjectMetadata(length, false);
   }
 
+  // Temporary method, as we need both ObjectMetadata and HeadObjectResponse for now.
+  // This will replace newObjectMetadata once all operations start using HeadObjectResponse
+  @Override
+  public HeadObjectResponse newObjectMetadataV2(long length) {
+    return createObjectMetadataV2(length, false);
+  }
+
+  private HeadObjectResponse createObjectMetadataV2(long length, boolean isDirectoryMarker) {
+    final HeadObjectResponse.Builder om = HeadObjectResponse.builder();
+
+    final S3AEncryptionMethods algorithm
+        = getServerSideEncryptionAlgorithm();
+    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
+      om.serverSideEncryption(algorithm.getMethod());
+    }
+    if (contentEncoding != null && !isDirectoryMarker) {
+      om.contentEncoding(contentEncoding);
+    }
+
+    if (length >= 0) {
+      om.contentLength(length);
+    }
+    return om.build();
+  }
+
   /**
    * Create a new object metadata instance.
    * Any standard metadata headers are added here, for example:
@@ -291,17 +318,17 @@ public class RequestFactoryImpl implements RequestFactory {
   @Override
   public CopyObjectRequest newCopyObjectRequest(String srcKey,
       String dstKey,
-      ObjectMetadata srcom) {
+      HeadObjectResponse srcom) {
     CopyObjectRequest copyObjectRequest =
         new CopyObjectRequest(getBucket(), srcKey, getBucket(), dstKey);
-    ObjectMetadata dstom = newObjectMetadata(srcom.getContentLength());
+    ObjectMetadata dstom = newObjectMetadata(srcom.contentLength());
     HeaderProcessing.cloneObjectMetadata(srcom, dstom);
     setOptionalObjectMetadata(dstom, false);
     copyEncryptionParameters(srcom, copyObjectRequest);
     copyObjectRequest.setCannedAccessControlList(cannedACL);
     copyObjectRequest.setNewObjectMetadata(dstom);
-    Optional.ofNullable(srcom.getStorageClass())
-        .ifPresent(copyObjectRequest::setStorageClass);
+    Optional.ofNullable(srcom.storageClass())
+        .ifPresent(storageClass -> copyObjectRequest.setStorageClass(storageClass.toString()));
     return prepareRequest(copyObjectRequest);
   }
 
@@ -312,9 +339,9 @@ public class RequestFactoryImpl implements RequestFactory {
    * @param copyObjectRequest copy object request body.
    */
   protected void copyEncryptionParameters(
-      ObjectMetadata srcom,
+      HeadObjectResponse srcom,
       CopyObjectRequest copyObjectRequest) {
-    String sourceKMSId = srcom.getSSEAwsKmsKeyId();
+    String sourceKMSId = srcom.ssekmsKeyId();
     if (isNotEmpty(sourceKMSId)) {
       // source KMS ID is propagated
       LOG.debug("Propagating SSE-KMS settings from source {}",
@@ -454,6 +481,18 @@ public class RequestFactoryImpl implements RequestFactory {
     //SSE-C requires to be filled in if enabled for object metadata
     setOptionalGetObjectMetadataParameters(request);
     return prepareRequest(request);
+  }
+
+  @Override
+  public HeadObjectRequest newHeadObjectRequest(String key) {
+    HeadObjectRequest headObjectRequest =
+        HeadObjectRequest.builder().bucket(bucket).key(key).build();
+    // TODO: Update this when we have S3 encryption client
+    //SSE-C requires to be filled in if enabled for object metadata
+    // setOptionalGetObjectMetadataParameters(request);
+
+    //TODO: add call to prepareRequest
+    return headObjectRequest;
   }
 
   @Override

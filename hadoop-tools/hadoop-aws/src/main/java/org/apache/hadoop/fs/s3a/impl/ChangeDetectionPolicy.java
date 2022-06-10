@@ -28,6 +28,8 @@ import com.amazonaws.services.s3.transfer.model.CopyResult;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -205,13 +207,13 @@ public abstract class ChangeDetectionPolicy {
    * metadata.  The policy generically refers to this attribute as
    * {@code revisionId}.
    *
-   * @param objectMetadata the s3 object metadata
+   * @param headObjectResponse the s3 object metadata
    * @param uri the URI of the object
    * @return the revisionId string as interpreted by this policy, or potentially
    * null if the attribute is unavailable (such as when the policy says to use
    * versionId but object versioning is not enabled for the bucket).
    */
-  public abstract String getRevisionId(ObjectMetadata objectMetadata,
+  public abstract String getRevisionId(HeadObjectResponse headObjectResponse,
       String uri);
 
   /**
@@ -263,7 +265,7 @@ public abstract class ChangeDetectionPolicy {
    * @param request the request
    * @param revisionId the revision id
    */
-  public abstract void applyRevisionConstraint(GetObjectMetadataRequest request,
+  public abstract void applyRevisionConstraint(HeadObjectRequest request,
       String revisionId);
 
   /**
@@ -332,8 +334,8 @@ public abstract class ChangeDetectionPolicy {
     }
 
     @Override
-    public String getRevisionId(ObjectMetadata objectMetadata, String uri) {
-      return objectMetadata.getETag();
+    public String getRevisionId(HeadObjectResponse headObjectResponse, String uri) {
+      return headObjectResponse.eTag();
     }
 
     @Override
@@ -369,7 +371,7 @@ public abstract class ChangeDetectionPolicy {
     }
 
     @Override
-    public void applyRevisionConstraint(GetObjectMetadataRequest request,
+    public void applyRevisionConstraint(HeadObjectRequest request,
         String revisionId) {
       LOG.debug("Unable to restrict HEAD request to etag; will check later");
     }
@@ -398,8 +400,8 @@ public abstract class ChangeDetectionPolicy {
     }
 
     @Override
-    public String getRevisionId(ObjectMetadata objectMetadata, String uri) {
-      String versionId = objectMetadata.getVersionId();
+    public String getRevisionId(HeadObjectResponse headObjectResponse, String uri) {
+      String versionId = headObjectResponse.versionId();
       if (versionId == null) {
         // this policy doesn't work if the bucket doesn't have object versioning
         // enabled (which isn't by default)
@@ -446,11 +448,11 @@ public abstract class ChangeDetectionPolicy {
     }
 
     @Override
-    public void applyRevisionConstraint(GetObjectMetadataRequest request,
+    public void applyRevisionConstraint(HeadObjectRequest request,
         String revisionId) {
       if (revisionId != null) {
         LOG.debug("Restricting metadata request to version {}", revisionId);
-        request.withVersionId(revisionId);
+        request.toBuilder().versionId(revisionId).build();
       } else {
         LOG.debug("No version ID to use as a constraint");
       }
@@ -482,7 +484,7 @@ public abstract class ChangeDetectionPolicy {
     }
 
     @Override
-    public String getRevisionId(final ObjectMetadata objectMetadata,
+    public String getRevisionId(final HeadObjectResponse headObjectResponse,
         final String uri) {
       return null;
     }
@@ -510,7 +512,7 @@ public abstract class ChangeDetectionPolicy {
     }
 
     @Override
-    public void applyRevisionConstraint(GetObjectMetadataRequest request,
+    public void applyRevisionConstraint(HeadObjectRequest request,
         String revisionId) {
 
     }

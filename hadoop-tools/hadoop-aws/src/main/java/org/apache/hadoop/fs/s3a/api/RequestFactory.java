@@ -35,6 +35,8 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
 import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -116,6 +118,8 @@ public interface RequestFactory {
    */
   ObjectMetadata newObjectMetadata(long length);
 
+  HeadObjectResponse newObjectMetadataV2(long length);
+
   /**
    * Create a copy request.
    * This includes the work of copying the relevant parts
@@ -127,7 +131,7 @@ public interface RequestFactory {
    */
   CopyObjectRequest newCopyObjectRequest(String srcKey,
       String dstKey,
-      ObjectMetadata srcom);
+      HeadObjectResponse srcom);
 
   /**
    * Create a putObject request.
@@ -206,6 +210,13 @@ public interface RequestFactory {
    * @return the request.
    */
   GetObjectMetadataRequest newGetObjectMetadataRequest(String key);
+
+  /**
+   * Create a HEAD request.
+   * @param key key, may have trailing /
+   * @return the request.
+   */
+  HeadObjectRequest newHeadObjectRequest(String key);
 
   /**
    * Create a GET request.

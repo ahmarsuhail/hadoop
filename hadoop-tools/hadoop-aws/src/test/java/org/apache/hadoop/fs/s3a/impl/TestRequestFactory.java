@@ -31,6 +31,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import org.apache.hadoop.fs.s3a.S3AEncryptionMethods;
 import org.apache.hadoop.fs.s3a.api.RequestFactory;
@@ -88,13 +89,14 @@ public class TestRequestFactory extends AbstractHadoopTestBase {
     String path = "path";
     String path2 = "path2";
     ObjectMetadata md = factory.newObjectMetadata(128);
+    HeadObjectResponse mdv2 = factory.newObjectMetadataV2(128);
     Assertions.assertThat(
             factory.newPutObjectRequest(path, md,
                     new ByteArrayInputStream(new byte[0]))
                 .getCannedAcl())
         .describedAs("ACL of PUT")
         .isEqualTo(acl);
-    Assertions.assertThat(factory.newCopyObjectRequest(path, path2, md)
+    Assertions.assertThat(factory.newCopyObjectRequest(path, path2, mdv2)
             .getCannedAccessControlList())
         .describedAs("ACL of COPY")
         .isEqualTo(acl);
@@ -159,10 +161,11 @@ public class TestRequestFactory extends AbstractHadoopTestBase {
     String path2 = "path2";
     String id = "1";
     ObjectMetadata md = factory.newObjectMetadata(128);
+    HeadObjectResponse mdv2 = factory.newObjectMetadataV2(128);
     a(factory.newAbortMultipartUploadRequest(path, id));
     a(factory.newCompleteMultipartUploadRequest(path, id,
         new ArrayList<>()));
-    a(factory.newCopyObjectRequest(path, path2, md));
+    a(factory.newCopyObjectRequest(path, path2, mdv2));
     a(factory.newDeleteObjectRequest(path));
     a(factory.newBulkDeleteRequest(new ArrayList<>()));
     a(factory.newDirectoryMarkerRequest(path));
