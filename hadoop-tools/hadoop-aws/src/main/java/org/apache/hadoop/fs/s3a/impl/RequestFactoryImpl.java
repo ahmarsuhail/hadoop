@@ -218,8 +218,9 @@ public class RequestFactoryImpl implements RequestFactory {
    * @param request upload part request
    */
   protected void setOptionalGetObjectMetadataParameters(
-      GetObjectMetadataRequest request) {
-    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
+      HeadObjectRequest.Builder request) {
+    generateSSECustomerKey().ifPresent(
+        sseCustomerKey -> request.sseCustomerKey(sseCustomerKey.getKey()));
   }
 
   /**
@@ -259,6 +260,20 @@ public class RequestFactoryImpl implements RequestFactory {
     }
   }
 
+  // TODO: Update and move to setOptionalObjectMetadata when ObjectMetadata is removed completely.
+  protected void setOptionalObjectMetadataV2(HeadObjectResponse.Builder metadata,
+      boolean isDirectoryMarker) {
+    final S3AEncryptionMethods algorithm
+        = getServerSideEncryptionAlgorithm();
+    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
+      metadata.serverSideEncryption(algorithm.getMethod());
+    }
+    if (contentEncoding != null && !isDirectoryMarker) {
+      metadata.contentEncoding(contentEncoding);
+    }
+  }
+
+
   /**
    * Create a new object metadata instance.
    * Any standard metadata headers are added here, for example:
@@ -272,25 +287,17 @@ public class RequestFactoryImpl implements RequestFactory {
     return createObjectMetadata(length, false);
   }
 
-  // Temporary method, as we need both ObjectMetadata and HeadObjectResponse for now.
-  // This will replace newObjectMetadata once all operations start using HeadObjectResponse
+  // TODO: Update this. This is a temporary method, as we need both ObjectMetadata and HeadObjectResponse for now.
+  //  This can move to newObjectMetadata once all operations start using HeadObjectResponse
   @Override
   public HeadObjectResponse newObjectMetadataV2(long length) {
     return createObjectMetadataV2(length, false);
   }
 
+  // TODO: Update and move to createObjectMetadata when ObjectMetadata is removed completely.
   private HeadObjectResponse createObjectMetadataV2(long length, boolean isDirectoryMarker) {
     final HeadObjectResponse.Builder om = HeadObjectResponse.builder();
-
-    final S3AEncryptionMethods algorithm
-        = getServerSideEncryptionAlgorithm();
-    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
-      om.serverSideEncryption(algorithm.getMethod());
-    }
-    if (contentEncoding != null && !isDirectoryMarker) {
-      om.contentEncoding(contentEncoding);
-    }
-
+    setOptionalObjectMetadataV2(om, isDirectoryMarker);
     if (length >= 0) {
       om.contentLength(length);
     }
@@ -474,25 +481,26 @@ public class RequestFactoryImpl implements RequestFactory {
 
   }
 
+  //TODO: This method will be removed. Not removing for now as some auditor tests still use it.
+  // They will be updated during the auditor work.
   @Override
   public GetObjectMetadataRequest newGetObjectMetadataRequest(String key) {
     GetObjectMetadataRequest request =
         new GetObjectMetadataRequest(getBucket(), key);
     //SSE-C requires to be filled in if enabled for object metadata
-    setOptionalGetObjectMetadataParameters(request);
+   // setOptionalGetObjectMetadataParameters(request);
     return prepareRequest(request);
   }
 
   @Override
   public HeadObjectRequest newHeadObjectRequest(String key) {
-    HeadObjectRequest headObjectRequest =
-        HeadObjectRequest.builder().bucket(bucket).key(key).build();
-    // TODO: Update this when we have S3 encryption client
+    HeadObjectRequest.Builder headObjectRequest =
+        HeadObjectRequest.builder().bucket(bucket).key(key);
     //SSE-C requires to be filled in if enabled for object metadata
-    // setOptionalGetObjectMetadataParameters(request);
+    setOptionalGetObjectMetadataParameters(headObjectRequest);
 
     //TODO: add call to prepareRequest
-    return headObjectRequest;
+    return headObjectRequest.build();
   }
 
   @Override
