@@ -77,18 +77,17 @@ public final class EncryptionTestUtils {
             md.serverSideEncryptionAsString(),
             md.ssekmsKeyId());
     switch(algorithm) {
-      // TODO: update during CSE work
-//    case SSE_C:
-//      assertNull("Metadata algorithm should have been null in "
-//                      + details,
-//              md.serverSideEncryption());
-//      assertEquals("Wrong SSE-C algorithm in "
-//                      + details,
-//              SSE_C_ALGORITHM, md.getSSECustomerAlgorithm());
-//      String md5Key = convertKeyToMd5(fs);
-//      assertEquals("getSSECustomerKeyMd5() wrong in " + details,
-//              md5Key, md.getSSECustomerKeyMd5());
-//      break;
+    case SSE_C:
+      assertNull("Metadata algorithm should have been null in "
+                      + details,
+              md.serverSideEncryption());
+      assertEquals("Wrong SSE-C algorithm in "
+                      + details,
+              SSE_C_ALGORITHM, md.sseCustomerAlgorithm());
+      String md5Key = convertKeyToMd5(fs);
+      assertEquals("getSSECustomerKeyMd5() wrong in " + details,
+              md5Key, md.sseCustomerKeyMD5());
+      break;
     case SSE_KMS:
       assertEquals("Wrong algorithm in " + details,
               AWS_KMS_SSE_ALGORITHM, md.serverSideEncryption());

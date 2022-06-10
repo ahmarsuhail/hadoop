@@ -21,7 +21,6 @@ package org.apache.hadoop.fs.s3a.impl;
 import java.util.Locale;
 
 import com.amazonaws.services.s3.model.CopyObjectRequest;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.transfer.model.CopyResult;
