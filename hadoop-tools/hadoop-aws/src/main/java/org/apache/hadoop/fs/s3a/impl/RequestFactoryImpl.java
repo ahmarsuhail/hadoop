@@ -220,7 +220,10 @@ public class RequestFactoryImpl implements RequestFactory {
   protected void setOptionalGetObjectMetadataParameters(
       HeadObjectRequest.Builder request) {
     generateSSECustomerKey().ifPresent(
-        sseCustomerKey -> request.sseCustomerKey(sseCustomerKey.getKey()));
+        sseCustomerKey -> {
+          request.sseCustomerKey(sseCustomerKey.getKey());
+          request.sseCustomerAlgorithm(sseCustomerKey.getAlgorithm());
+        });
   }
 
   /**
