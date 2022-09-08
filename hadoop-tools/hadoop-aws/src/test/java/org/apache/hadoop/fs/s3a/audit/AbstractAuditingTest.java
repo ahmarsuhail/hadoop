@@ -134,8 +134,9 @@ public abstract class AbstractAuditingTest extends AbstractHadoopTestBase {
    * @return a processed request.
    */
   protected GetObjectMetadataRequest head() {
-    return manager.beforeExecution(
-        requestFactory.newGetObjectMetadataRequest("/"));
+//    return manager.beforeExecution(
+//        requestFactory.newGetObjectMetadataRequest("/"));
+    return manager.beforeExecution(new GetObjectMetadataRequest("test", "/"));
   }
 
   /**

@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +32,6 @@ import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
@@ -40,9 +40,7 @@ import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
 import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
@@ -51,8 +49,12 @@ import com.amazonaws.services.s3.model.UploadPartRequest;
 import org.apache.hadoop.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.s3a.Retries;
@@ -253,74 +255,46 @@ public class RequestFactoryImpl implements RequestFactory {
    * Set the optional parameters for a PUT request.
    * @param request request to patch.
    */
-  protected void setOptionalPutRequestParameters(PutObjectRequest request) {
-    generateSSEAwsKeyParams().ifPresent(request::setSSEAwsKeyManagementParams);
-    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
-  }
+//  protected void setOptionalPutRequestParameters(PutObjectRequest request) {
+//    generateSSEAwsKeyParams().ifPresent(request::setSSEAwsKeyManagementParams);
+//    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
+//  }
 
   /**
    * Set the optional metadata for an object being created or copied.
-   * @param metadata to update.
+   * @param headObjectResponseBuilder headObject response builder.
    * @param isDirectoryMarker is this for a directory marker?
    */
-  protected void setOptionalObjectMetadata(ObjectMetadata metadata,
+  protected void setOptionalObjectMetadata(HeadObjectResponse.Builder headObjectResponseBuilder,
       boolean isDirectoryMarker) {
     final S3AEncryptionMethods algorithm
         = getServerSideEncryptionAlgorithm();
     if (S3AEncryptionMethods.SSE_S3 == algorithm) {
-      metadata.setSSEAlgorithm(algorithm.getMethod());
+      headObjectResponseBuilder.serverSideEncryption(algorithm.getMethod());
     }
     if (contentEncoding != null && !isDirectoryMarker) {
-      metadata.setContentEncoding(contentEncoding);
+      headObjectResponseBuilder.contentEncoding(contentEncoding);
     }
-  }
-
-  /**
-   * Create a new object metadata instance.
-   * Any standard metadata headers are added here, for example:
-   * encryption.
-   *
-   * @param length length of data to set in header; Ignored if negative
-   * @return a new metadata instance
-   */
-  @Override
-  public ObjectMetadata newObjectMetadata(long length) {
-    return createObjectMetadata(length, false);
-  }
-
-  /**
-   * Create a new object metadata instance.
-   * Any standard metadata headers are added here, for example:
-   * encryption.
-   *
-   * @param length length of data to set in header; Ignored if negative
-   * @param isDirectoryMarker is this for a directory marker?
-   * @return a new metadata instance
-   */
-  private ObjectMetadata createObjectMetadata(long length, boolean isDirectoryMarker) {
-    final ObjectMetadata om = new ObjectMetadata();
-    setOptionalObjectMetadata(om, isDirectoryMarker);
-    if (length >= 0) {
-      om.setContentLength(length);
-    }
-    return om;
   }
 
   @Override
   public CopyObjectRequest newCopyObjectRequest(String srcKey,
       String dstKey,
-      ObjectMetadata srcom) {
-    CopyObjectRequest copyObjectRequest =
-        new CopyObjectRequest(getBucket(), srcKey, getBucket(), dstKey);
-    ObjectMetadata dstom = newObjectMetadata(srcom.getContentLength());
-    HeaderProcessing.cloneObjectMetadata(srcom, dstom);
-    setOptionalObjectMetadata(dstom, false);
-    copyEncryptionParameters(srcom, copyObjectRequest);
-    copyObjectRequest.setCannedAccessControlList(cannedACL);
-    copyObjectRequest.setNewObjectMetadata(dstom);
-    Optional.ofNullable(srcom.getStorageClass())
-        .ifPresent(copyObjectRequest::setStorageClass);
-    return prepareRequest(copyObjectRequest);
+      HeadObjectResponse srcom) {
+
+    CopyObjectRequest.Builder copyObjectRequestBuilder = CopyObjectRequest.builder();
+    Map<String, String> dstom = new HashMap<>();
+    HeaderProcessing.cloneObjectMetadata(srcom, dstom, copyObjectRequestBuilder);
+   // setOptionalObjectMetadata(dstom, false);
+    //copyEncryptionParameters(srcom, copyObjectRequest);
+    copyObjectRequestBuilder.acl(cannedACL.toString());
+    copyObjectRequestBuilder.metadata(dstom);
+    if (srcom.storageClass() != null) {
+      copyObjectRequestBuilder.storageClass(srcom.storageClass());
+    }
+
+    return copyObjectRequestBuilder.destinationBucket(getBucket())
+        .destinationKey(dstKey).sourceBucket(getBucket()).sourceKey(srcKey).build();
   }
 
   /**
@@ -329,86 +303,94 @@ public class RequestFactoryImpl implements RequestFactory {
    * @param srcom source object metadata.
    * @param copyObjectRequest copy object request body.
    */
-  protected void copyEncryptionParameters(
-      ObjectMetadata srcom,
-      CopyObjectRequest copyObjectRequest) {
-    String sourceKMSId = srcom.getSSEAwsKmsKeyId();
-    if (isNotEmpty(sourceKMSId)) {
-      // source KMS ID is propagated
-      LOG.debug("Propagating SSE-KMS settings from source {}",
-          sourceKMSId);
-      copyObjectRequest.setSSEAwsKeyManagementParams(
-          new SSEAwsKeyManagementParams(sourceKMSId));
-    }
-    switch (getServerSideEncryptionAlgorithm()) {
-    case SSE_S3:
-      /* no-op; this is set in destination object metadata */
-      break;
-
-    case SSE_C:
-      generateSSECustomerKey().ifPresent(customerKey -> {
-        copyObjectRequest.setSourceSSECustomerKey(customerKey);
-        copyObjectRequest.setDestinationSSECustomerKey(customerKey);
-      });
-      break;
-
-    case SSE_KMS:
-      generateSSEAwsKeyParams().ifPresent(
-          copyObjectRequest::setSSEAwsKeyManagementParams);
-      break;
-    default:
-    }
-  }
+//  protected void copyEncryptionParameters(
+//      ObjectMetadata srcom,
+//      CopyObjectRequest copyObjectRequest) {
+//    String sourceKMSId = srcom.getSSEAwsKmsKeyId();
+//    if (isNotEmpty(sourceKMSId)) {
+//      // source KMS ID is propagated
+//      LOG.debug("Propagating SSE-KMS settings from source {}",
+//          sourceKMSId);
+//      copyObjectRequest.setSSEAwsKeyManagementParams(
+//          new SSEAwsKeyManagementParams(sourceKMSId));
+//    }
+//    switch (getServerSideEncryptionAlgorithm()) {
+//    case SSE_S3:
+//      /* no-op; this is set in destination object metadata */
+//      break;
+//
+//    case SSE_C:
+//      generateSSECustomerKey().ifPresent(customerKey -> {
+//        copyObjectRequest.setSourceSSECustomerKey(customerKey);
+//        copyObjectRequest.setDestinationSSECustomerKey(customerKey);
+//      });
+//      break;
+//
+//    case SSE_KMS:
+//      generateSSEAwsKeyParams().ifPresent(
+//          copyObjectRequest::setSSEAwsKeyManagementParams);
+//      break;
+//    default:
+//    }
+//  }
   /**
    * Create a putObject request.
    * Adds the ACL, storage class and metadata
+   * @param putObjectRequestBuilder putObject request builder
    * @param key key of object
-   * @param metadata metadata header
    * @param options options for the request, including headers
-   * @param srcfile source file
+   * @param isFile is data to be uploaded a file
    * @return the request
    */
   @Override
-  public PutObjectRequest newPutObjectRequest(String key,
-      ObjectMetadata metadata,
+  public PutObjectRequest newPutObjectRequest(
+      PutObjectRequest.Builder putObjectRequestBuilder,
+      String key,
       final PutObjectOptions options,
-      File srcfile) {
-    Preconditions.checkNotNull(srcfile);
-    PutObjectRequest putObjectRequest = new PutObjectRequest(getBucket(), key,
-        srcfile);
-    maybeSetMetadata(options, metadata);
-    setOptionalPutRequestParameters(putObjectRequest);
-    putObjectRequest.setCannedAcl(cannedACL);
-    if (storageClass != null) {
-      putObjectRequest.setStorageClass(storageClass);
+      boolean isFile) {
+
+    Preconditions.checkArgument(isNotEmpty(key), "Null/empty key");
+
+    putObjectRequestBuilder.bucket(getBucket()).key(key);
+
+    if (options != null) {
+      putObjectRequestBuilder.metadata(options.getHeaders());
     }
-    putObjectRequest.setMetadata(metadata);
-    return prepareRequest(putObjectRequest);
+
+    // TODO: set ACL & optional request params. Also check difference between inputStream and file
+    //  put methods and ensure you've covered all the diffs.
+    //    setOptionalPutRequestParameters(putObjectRequest);
+//    putObjectRequest.setCannedAcl(cannedACL);
+    if (storageClass != null) {
+      putObjectRequestBuilder.storageClass(storageClass.toString());
+    }
+    // TODO: check this
+    // putObjectRequest.setMetadata(metadata);
+
+    return putObjectRequestBuilder.build();
+   // return prepareRequest(putObjectRequestBuilder);
   }
 
-  /**
-   * Create a {@link PutObjectRequest} request.
-   * The metadata is assumed to have been configured with the size of the
-   * operation.
-   * @param key key of object
-   * @param metadata metadata header
-   * @param options options for the request
-   * @param inputStream source data.
-   * @return the request
-   */
-  @Override
-  public PutObjectRequest newPutObjectRequest(String key,
-      ObjectMetadata metadata,
-      @Nullable final PutObjectOptions options,
-      InputStream inputStream) {
-    Preconditions.checkNotNull(inputStream);
-    Preconditions.checkArgument(isNotEmpty(key), "Null/empty key");
-    maybeSetMetadata(options, metadata);
-    PutObjectRequest putObjectRequest = new PutObjectRequest(getBucket(), key,
-        inputStream, metadata);
-    setOptionalPutRequestParameters(putObjectRequest);
-    putObjectRequest.setCannedAcl(cannedACL);
-    return prepareRequest(putObjectRequest);
+  public PutObjectRequest.Builder buildPutObjectRequest(long length, boolean isDirectoryMarker) {
+
+    PutObjectRequest.Builder putObjectRequestBuilder = PutObjectRequest.builder();
+
+    final S3AEncryptionMethods algorithm
+        = getServerSideEncryptionAlgorithm();
+
+    if (length >= 0) {
+      putObjectRequestBuilder.contentLength(length);
+    }
+
+    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
+      putObjectRequestBuilder.serverSideEncryption(algorithm.getMethod());
+    }
+
+    if (contentEncoding != null && !isDirectoryMarker) {
+      putObjectRequestBuilder.contentEncoding(contentEncoding);
+    }
+
+    return putObjectRequestBuilder;
   }
 
   @Override
@@ -416,18 +398,13 @@ public class RequestFactoryImpl implements RequestFactory {
     String key = directory.endsWith("/")
         ? directory
         : (directory + "/");
-    // an input stream which is laways empty
-    final InputStream im = new InputStream() {
-      @Override
-      public int read() throws IOException {
-        return -1;
-      }
-    };
     // preparation happens in here
-    final ObjectMetadata md = createObjectMetadata(0L, true);
-    md.setContentType(HeaderProcessing.CONTENT_TYPE_X_DIRECTORY);
+    PutObjectRequest.Builder putObjectRequestBuilder = buildPutObjectRequest(0L, true);
+
+    putObjectRequestBuilder.contentType(HeaderProcessing.CONTENT_TYPE_X_DIRECTORY);
+
     PutObjectRequest putObjectRequest =
-        newPutObjectRequest(key, md, null, im);
+        newPutObjectRequest(putObjectRequestBuilder, key, null, false);
     return putObjectRequest;
   }
 
@@ -455,12 +432,13 @@ public class RequestFactoryImpl implements RequestFactory {
   public InitiateMultipartUploadRequest newMultipartUploadRequest(
       final String destKey,
       @Nullable final PutObjectOptions options) {
-    final ObjectMetadata objectMetadata = newObjectMetadata(-1);
-    maybeSetMetadata(options, objectMetadata);
+    // TODO: Temporarily removing metadata,
+    //  will be added back in when this operation is updated.
+    // final ObjectMetadata objectMetadata = newObjectMetadata(-1);
+   // maybeSetMetadata(options, objectMetadata);
     final InitiateMultipartUploadRequest initiateMPURequest =
         new InitiateMultipartUploadRequest(getBucket(),
-            destKey,
-            objectMetadata);
+            destKey);
     initiateMPURequest.setCannedACL(getCannedACL());
     if (getStorageClass() != null) {
       initiateMPURequest.withStorageClass(getStorageClass());
@@ -482,12 +460,12 @@ public class RequestFactoryImpl implements RequestFactory {
   }
 
   @Override
-  public GetObjectMetadataRequest newGetObjectMetadataRequest(String key) {
-    GetObjectMetadataRequest request =
-        new GetObjectMetadataRequest(getBucket(), key);
+  public HeadObjectRequest newGetObjectMetadataRequest(String key) {
+    HeadObjectRequest request = HeadObjectRequest.builder().bucket(getBucket()).key(key).build();
     //SSE-C requires to be filled in if enabled for object metadata
-    setOptionalGetObjectMetadataParameters(request);
-    return prepareRequest(request);
+//    setOptionalGetObjectMetadataParameters(request);
+//    return prepareRequest(request);
+    return request;
   }
 
   @Override
@@ -616,23 +594,6 @@ public class RequestFactoryImpl implements RequestFactory {
   @Override
   public void setEncryptionSecrets(final EncryptionSecrets secrets) {
     encryptionSecrets = secrets;
-  }
-
-  /**
-   * Set the metadata from the options if the options are not
-   * null and the metadata contains headers.
-   * @param options options for the request
-   * @param objectMetadata metadata to patch
-   */
-  private void maybeSetMetadata(
-      @Nullable PutObjectOptions options,
-      final ObjectMetadata objectMetadata) {
-    if (options != null) {
-      Map<String, String> headers = options.getHeaders();
-      if (headers != null) {
-        objectMetadata.setUserMetadata(headers);
-      }
-    }
   }
 
   /**

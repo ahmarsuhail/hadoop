@@ -27,25 +27,25 @@ import java.util.Optional;
 import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
 import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.model.SSECustomerKey;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.model.UploadPartRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.s3a.S3AEncryptionMethods;
@@ -115,14 +115,12 @@ public interface RequestFactory {
   StorageClass getStorageClass();
 
   /**
-   * Create a new object metadata instance.
-   * Any standard metadata headers are added here, for example:
-   * encryption.
-   *
-   * @param length length of data to set in header; Ignored if negative
-   * @return a new metadata instance
+   * Create a putObject request builder.
+   * @param length length of object to be uploaded
+   * @param isDirectoryMarker true if object to be uploaded is a directory marker
+   * @return
    */
-  ObjectMetadata newObjectMetadata(long length);
+  PutObjectRequest.Builder buildPutObjectRequest(long length, boolean isDirectoryMarker);
 
   /**
    * Create a copy request.
@@ -135,34 +133,23 @@ public interface RequestFactory {
    */
   CopyObjectRequest newCopyObjectRequest(String srcKey,
       String dstKey,
-      ObjectMetadata srcom);
+      HeadObjectResponse srcom);
 
-  /**
-   * Create a putObject request.
-   * Adds the ACL and metadata
-   * @param key key of object
-   * @param metadata metadata header
-   * @param options options for the request
-   * @param srcfile source file
-   * @return the request
-   */
-  PutObjectRequest newPutObjectRequest(String key,
-      ObjectMetadata metadata, PutObjectOptions options, File srcfile);
 
   /**
    * Create a {@link PutObjectRequest} request.
    * The metadata is assumed to have been configured with the size of the
    * operation.
+   * @param putObjectRequestBuilder putObject request builder
    * @param key key of object
-   * @param metadata metadata header
    * @param options options for the request
-   * @param inputStream source data.
+   * @param isFile is data to be uploaded a file
    * @return the request
    */
-  PutObjectRequest newPutObjectRequest(String key,
-      ObjectMetadata metadata,
+  PutObjectRequest newPutObjectRequest(PutObjectRequest.Builder putObjectRequestBuilder,
+      String key,
       PutObjectOptions options,
-      InputStream inputStream);
+      boolean isFile);
 
   /**
    * Create a {@link PutObjectRequest} request for creating
@@ -218,7 +205,8 @@ public interface RequestFactory {
    * @param key key, may have trailing /
    * @return the request.
    */
-  GetObjectMetadataRequest newGetObjectMetadataRequest(String key);
+  HeadObjectRequest newGetObjectMetadataRequest(String key);
+
 
   /**
    * Create a GET request.

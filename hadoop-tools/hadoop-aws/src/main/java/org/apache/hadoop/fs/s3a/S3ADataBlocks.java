@@ -47,7 +47,8 @@ import static org.apache.hadoop.io.IOUtils.cleanupWithLogger;
  * Set of classes to support output streaming into blocks which are then
  * uploaded as to S3 as a single PUT, or as part of a multipart request.
  */
-final class S3ADataBlocks {
+// TODO: Check if it's ok to make this class public
+public final class S3ADataBlocks {
 
   private static final Logger LOG =
       LoggerFactory.getLogger(S3ADataBlocks.class);
@@ -101,7 +102,7 @@ final class S3ADataBlocks {
    * It can be one of a file or an input stream.
    * When closed, any stream is closed. Any source file is untouched.
    */
-  static final class BlockUploadData implements Closeable {
+ public static final class BlockUploadData implements Closeable {
     private final File file;
     private final InputStream uploadStream;
 
@@ -119,7 +120,7 @@ final class S3ADataBlocks {
      * Stream constructor, file field will be null.
      * @param uploadStream stream to upload
      */
-    BlockUploadData(InputStream uploadStream) {
+  public  BlockUploadData(InputStream uploadStream) {
       Preconditions.checkNotNull(uploadStream, "rawUploadStream");
       this.uploadStream = uploadStream;
       this.file = null;

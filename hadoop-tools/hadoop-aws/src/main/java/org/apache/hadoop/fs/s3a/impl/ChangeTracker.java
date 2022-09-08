@@ -20,15 +20,16 @@ package org.apache.hadoop.fs.s3a.impl;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.SdkBaseException;
-import com.amazonaws.services.s3.model.CopyObjectRequest;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.transfer.model.CopyResult;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -149,7 +150,7 @@ public class ChangeTracker {
   }
 
   public boolean maybeApplyConstraint(
-      final GetObjectMetadataRequest request) {
+      final HeadObjectRequest request) {
 
     if (policy.getMode() == ChangeDetectionPolicy.Mode.Server
         && revisionId != null) {
@@ -191,24 +192,25 @@ public class ChangeTracker {
       }
     }
 
-    processMetadata(object.getObjectMetadata(), operation);
+    // TODO: will be done with GetObject update
+   // processMetadata(object.getObjectMetadata(), operation);
   }
 
   /**
    * Process the response from the server for validation against the
    * change policy.
-   * @param copyResult result of a copy operation
+   * @param copyObjectResponse response of a copy operation
    * @throws PathIOException raised on failure
    * @throws RemoteFileChangedException if the remote file has changed.
    */
-  public void processResponse(final CopyResult copyResult)
+  public void processResponse(final CopyObjectResponse copyObjectResponse)
       throws PathIOException {
     // ETag (sometimes, depending on encryption and/or multipart) is not the
     // same on the copied object as the original.  Version Id seems to never
     // be the same on the copy.  As such, there isn't really anything that
     // can be verified on the response, except that a revision ID is present
     // if required.
-    String newRevisionId = policy.getRevisionId(copyResult);
+    String newRevisionId = policy.getRevisionId(copyObjectResponse);
     LOG.debug("Copy result {}: {}", policy.getSource(), newRevisionId);
     if (newRevisionId == null && policy.isRequireVersion()) {
       throw new NoVersionAttributeException(uri, String.format(
@@ -254,7 +256,7 @@ public class ChangeTracker {
    * @throws PathIOException raised on failure
    * @throws RemoteFileChangedException if the remote file has changed.
    */
-  public void processMetadata(final ObjectMetadata metadata,
+  public void processMetadata(final HeadObjectResponse metadata,
       final String operation) throws PathIOException {
     final String newRevisionId = policy.getRevisionId(metadata, uri);
     processNewRevision(newRevisionId, operation, -1);

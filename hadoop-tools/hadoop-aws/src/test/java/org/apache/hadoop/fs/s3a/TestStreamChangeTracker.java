@@ -21,14 +21,17 @@ package org.apache.hadoop.fs.s3a;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.SdkBaseException;
 import com.amazonaws.services.s3.Headers;
-import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.transfer.model.CopyResult;
+
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
+import software.amazon.awssdk.services.s3.model.CopyObjectResult;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathIOException;
@@ -298,7 +301,7 @@ public class TestStreamChangeTracker extends HadoopTestBase {
 
   protected PathIOException expectNoVersionAttributeException(
       final ChangeTracker tracker,
-      final CopyResult response,
+      final CopyObjectResponse response,
       final String message) throws Exception {
     return expectException(tracker, response, message,
         NoVersionAttributeException.class);
@@ -320,7 +323,7 @@ public class TestStreamChangeTracker extends HadoopTestBase {
 
   protected <T extends Exception> T expectException(
       final ChangeTracker tracker,
-      final CopyResult response,
+      final CopyObjectResponse response,
       final String message,
       final Class<T> clazz) throws Exception {
     return intercept(
@@ -399,18 +402,22 @@ public class TestStreamChangeTracker extends HadoopTestBase {
   }
 
   private CopyObjectRequest newCopyObjectRequest() {
-    return new CopyObjectRequest(BUCKET, OBJECT, BUCKET, DEST_OBJECT);
+    return CopyObjectRequest.builder().sourceBucket(BUCKET).sourceKey(OBJECT)
+        .destinationBucket(BUCKET).destinationKey(DEST_OBJECT).build();
   }
 
-  private CopyResult newCopyResult(String eTag, String versionId) {
-    CopyResult copyResult = new CopyResult();
-    copyResult.setSourceBucketName(BUCKET);
-    copyResult.setSourceKey(OBJECT);
-    copyResult.setDestinationBucketName(BUCKET);
-    copyResult.setDestinationKey(DEST_OBJECT);
-    copyResult.setETag(eTag);
-    copyResult.setVersionId(versionId);
-    return copyResult;
+  private CopyObjectResponse newCopyResult(String eTag, String versionId) {
+    CopyObjectResponse.Builder copyObjectResponseBuilder = CopyObjectResponse.builder();
+
+    // TODO: Check this, these don't seem to be modelled.
+//    copyResult.setSourceBucketName(BUCKET);
+//    copyResult.setSourceKey(OBJECT);
+//    copyResult.setDestinationBucketName(BUCKET);
+//    copyResult.setDestinationKey(DEST_OBJECT);
+
+
+    return copyObjectResponseBuilder.versionId(versionId)
+        .copyObjectResult(CopyObjectResult.builder().eTag(eTag).build()).build();
   }
 
   private S3Object newResponse(String etag, String versionId) {
