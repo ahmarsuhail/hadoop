@@ -20,6 +20,7 @@ package org.apache.hadoop.fs.s3a;
 
 import org.slf4j.Logger;
 
+import software.amazon.awssdk.transfer.s3.ObjectTransfer;
 import software.amazon.awssdk.transfer.s3.progress.TransferListener;
 
 import org.apache.hadoop.util.Progressable;
@@ -73,11 +74,19 @@ public class ProgressableProgressListener implements TransferListener {
   }
 
   /**
-   * Method to get the last recorded number of bytes transferred for an object.
-   * @return number of bytes transferred 
+   * Method to invoke after upload has completed.
+   * This can handle race conditions in setup/teardown.
+   * @return the number of bytes which were transferred after the notification
    */
-  public long getLastBytesTransferred() {
-    return lastBytesTransferred;
+  public long uploadCompleted(ObjectTransfer upload) {
+
+    long delta =
+        upload.progress().snapshot().bytesTransferred() - lastBytesTransferred;
+    if (delta > 0) {
+      LOG.debug("S3A write delta changed after finished: {} bytes", delta);
+      fs.incrementPutProgressStatistics(key, delta);
+    }
+    return delta;
   }
 
 }

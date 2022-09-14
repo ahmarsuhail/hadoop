@@ -143,13 +143,11 @@ public interface RequestFactory {
    * @param putObjectRequestBuilder putObject request builder
    * @param key key of object
    * @param options options for the request
-   * @param isFile is data to be uploaded a file
    * @return the request
    */
   PutObjectRequest newPutObjectRequest(PutObjectRequest.Builder putObjectRequestBuilder,
       String key,
-      PutObjectOptions options,
-      boolean isFile);
+      PutObjectOptions options);
 
   /**
    * Create a {@link PutObjectRequest} request for creating

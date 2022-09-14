@@ -24,16 +24,16 @@ import software.amazon.awssdk.transfer.s3.FileUpload;
  * Simple struct that contains information about a S3 upload.
  */
 public class UploadInfo {
-  private final FileUpload upload;
+  private final FileUpload fileUpload;
   private final long length;
 
   public UploadInfo(FileUpload upload, long length) {
-    this.upload = upload;
+    this.fileUpload = upload;
     this.length = length;
   }
 
-  public FileUpload getUpload() {
-    return upload;
+  public FileUpload getFileUpload() {
+    return fileUpload;
   }
 
   public long getLength() {

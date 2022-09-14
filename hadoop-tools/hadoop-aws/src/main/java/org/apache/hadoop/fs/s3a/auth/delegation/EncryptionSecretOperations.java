@@ -50,6 +50,19 @@ public final class EncryptionSecretOperations {
     }
   }
 
+  public static String getSSECustomerKey(final EncryptionSecrets secrets) {
+      return secrets.getEncryptionKey();
+  }
+
+  public static Optional<String> getSSEAwsKMSKey(final EncryptionSecrets secrets) {
+    if (secrets.getEncryptionMethod() == S3AEncryptionMethods.SSE_KMS
+        && secrets.hasEncryptionKey()) {
+      return Optional.of(secrets.getEncryptionKey());
+    } else {
+      return Optional.empty();
+    }
+  }
+
   /**
    * Create SSE-KMS options for a request, iff the encryption is SSE-KMS.
    * @return an optional SSE-KMS param to attach to a request.

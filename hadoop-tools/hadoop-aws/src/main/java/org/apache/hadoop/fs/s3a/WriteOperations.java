@@ -235,12 +235,13 @@ public interface WriteOperations extends AuditSpanSource, Closeable {
    *
    * @param putObjectRequest the request
    * @param putOptions put object options
-   *
+   * @param uploadData data to be uploa
+   *                  
    * @throws IOException on problems
    */
   @Retries.RetryTranslated
   void uploadObject(PutObjectRequest putObjectRequest,
-      PutObjectOptions putOptions, InputStream inputStream)
+      PutObjectOptions putOptions, S3ADataBlocks.BlockUploadData uploadData)
       throws IOException;
 
   /**

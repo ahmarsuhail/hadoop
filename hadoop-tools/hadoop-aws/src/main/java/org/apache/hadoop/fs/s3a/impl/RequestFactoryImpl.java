@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,8 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
+import software.amazon.awssdk.utils.Md5Utils;
 
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.s3a.Retries;
@@ -64,6 +67,7 @@ import org.apache.hadoop.fs.s3a.auth.delegation.EncryptionSecretOperations;
 import org.apache.hadoop.fs.s3a.auth.delegation.EncryptionSecrets;
 
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
+import static org.apache.hadoop.fs.s3a.Constants.AWS_ENCRYPTION_SSE_KMS;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.DEFAULT_UPLOAD_PART_COUNT_LIMIT;
 import static org.apache.hadoop.util.Preconditions.checkArgument;
 import static org.apache.hadoop.util.Preconditions.checkNotNull;
@@ -103,6 +107,8 @@ public class RequestFactoryImpl implements RequestFactory {
   /**
    * ACL For new objects.
    */
+  // TODO: Set this to V2's ObjectCannedACL, and replace cannedACL.toString().
+  //  To be done during MPU update work.
   private final CannedAccessControlList cannedACL;
 
   /**
@@ -187,6 +193,7 @@ public class RequestFactoryImpl implements RequestFactory {
    * This will contain a secret extracted from the bucket/configuration.
    * @return an optional customer key.
    */
+  // TODO: This doesn't need to be optional anymore, update during getObject work.
   @Override
   public Optional<SSECustomerKey> generateSSECustomerKey() {
     return EncryptionSecretOperations.createSSECustomerKey(
@@ -231,16 +238,6 @@ public class RequestFactoryImpl implements RequestFactory {
   }
 
   /**
-   * Sets server side encryption parameters to the GET reuquest.
-   * request when encryption is enabled.
-   * @param request upload part request
-   */
-  protected void setOptionalGetObjectMetadataParameters(
-      GetObjectMetadataRequest request) {
-    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
-  }
-
-  /**
    * Set the optional parameters when initiating the request (encryption,
    * headers, storage, etc).
    * @param request request to patch.
@@ -251,30 +248,18 @@ public class RequestFactoryImpl implements RequestFactory {
     generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
   }
 
-  /**
-   * Set the optional parameters for a PUT request.
-   * @param request request to patch.
-   */
-//  protected void setOptionalPutRequestParameters(PutObjectRequest request) {
-//    generateSSEAwsKeyParams().ifPresent(request::setSSEAwsKeyManagementParams);
-//    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
-//  }
+  private CopyObjectRequest.Builder buildCopyObjectRequest() {
 
-  /**
-   * Set the optional metadata for an object being created or copied.
-   * @param headObjectResponseBuilder headObject response builder.
-   * @param isDirectoryMarker is this for a directory marker?
-   */
-  protected void setOptionalObjectMetadata(HeadObjectResponse.Builder headObjectResponseBuilder,
-      boolean isDirectoryMarker) {
+    CopyObjectRequest.Builder copyObjectRequestBuilder = CopyObjectRequest.builder();
+
     final S3AEncryptionMethods algorithm
         = getServerSideEncryptionAlgorithm();
-    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
-      headObjectResponseBuilder.serverSideEncryption(algorithm.getMethod());
+
+    if (contentEncoding != null) {
+      copyObjectRequestBuilder.contentEncoding(contentEncoding);
     }
-    if (contentEncoding != null && !isDirectoryMarker) {
-      headObjectResponseBuilder.contentEncoding(contentEncoding);
-    }
+
+    return copyObjectRequestBuilder;
   }
 
   @Override
@@ -282,11 +267,11 @@ public class RequestFactoryImpl implements RequestFactory {
       String dstKey,
       HeadObjectResponse srcom) {
 
-    CopyObjectRequest.Builder copyObjectRequestBuilder = CopyObjectRequest.builder();
+    CopyObjectRequest.Builder copyObjectRequestBuilder = buildCopyObjectRequest();
+
     Map<String, String> dstom = new HashMap<>();
     HeaderProcessing.cloneObjectMetadata(srcom, dstom, copyObjectRequestBuilder);
-   // setOptionalObjectMetadata(dstom, false);
-    //copyEncryptionParameters(srcom, copyObjectRequest);
+    copyEncryptionParameters(srcom, copyObjectRequestBuilder);
     copyObjectRequestBuilder.acl(cannedACL.toString());
     copyObjectRequestBuilder.metadata(dstom);
     if (srcom.storageClass() != null) {
@@ -301,53 +286,47 @@ public class RequestFactoryImpl implements RequestFactory {
    * Propagate encryption parameters from source file if set else use the
    * current filesystem encryption settings.
    * @param srcom source object metadata.
-   * @param copyObjectRequest copy object request body.
+   * @param copyObjectRequestBuilder copy object request builder.
    */
-//  protected void copyEncryptionParameters(
-//      ObjectMetadata srcom,
-//      CopyObjectRequest copyObjectRequest) {
-//    String sourceKMSId = srcom.getSSEAwsKmsKeyId();
-//    if (isNotEmpty(sourceKMSId)) {
-//      // source KMS ID is propagated
-//      LOG.debug("Propagating SSE-KMS settings from source {}",
-//          sourceKMSId);
-//      copyObjectRequest.setSSEAwsKeyManagementParams(
-//          new SSEAwsKeyManagementParams(sourceKMSId));
-//    }
-//    switch (getServerSideEncryptionAlgorithm()) {
-//    case SSE_S3:
-//      /* no-op; this is set in destination object metadata */
-//      break;
-//
-//    case SSE_C:
-//      generateSSECustomerKey().ifPresent(customerKey -> {
-//        copyObjectRequest.setSourceSSECustomerKey(customerKey);
-//        copyObjectRequest.setDestinationSSECustomerKey(customerKey);
-//      });
-//      break;
-//
-//    case SSE_KMS:
-//      generateSSEAwsKeyParams().ifPresent(
-//          copyObjectRequest::setSSEAwsKeyManagementParams);
-//      break;
-//    default:
-//    }
-//  }
+  protected void copyEncryptionParameters(
+      HeadObjectResponse srcom,
+      CopyObjectRequest.Builder copyObjectRequestBuilder) {
+
+    final S3AEncryptionMethods algorithm
+        = getServerSideEncryptionAlgorithm();
+
+    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
+      copyObjectRequestBuilder.serverSideEncryption(algorithm.getMethod());
+    } else if (S3AEncryptionMethods.SSE_KMS == algorithm) {
+      copyObjectRequestBuilder.serverSideEncryption(ServerSideEncryption.AWS_KMS);
+      // Set the KMS key if present, else S3 uses AWS managed key.
+      EncryptionSecretOperations.getSSEAwsKMSKey(encryptionSecrets)
+          .ifPresent(kmsKey -> copyObjectRequestBuilder.ssekmsKeyId(kmsKey));
+    } else if (S3AEncryptionMethods.SSE_C == algorithm) {
+      String base64customerKey = EncryptionSecretOperations.getSSECustomerKey(encryptionSecrets);
+
+      copyObjectRequestBuilder
+          .copySourceSSECustomerAlgorithm(ServerSideEncryption.AES256.name())
+          .copySourceSSECustomerKey(base64customerKey)
+          .copySourceSSECustomerKeyMD5(Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)))
+          .sseCustomerAlgorithm(ServerSideEncryption.AES256.name())
+          .sseCustomerKey(base64customerKey)
+          .sseCustomerKeyMD5(Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
+    }
+  }
   /**
    * Create a putObject request.
    * Adds the ACL, storage class and metadata
    * @param putObjectRequestBuilder putObject request builder
    * @param key key of object
    * @param options options for the request, including headers
-   * @param isFile is data to be uploaded a file
    * @return the request
    */
   @Override
   public PutObjectRequest newPutObjectRequest(
       PutObjectRequest.Builder putObjectRequestBuilder,
       String key,
-      final PutObjectOptions options,
-      boolean isFile) {
+      final PutObjectOptions options) {
 
     Preconditions.checkArgument(isNotEmpty(key), "Null/empty key");
 
@@ -357,33 +336,26 @@ public class RequestFactoryImpl implements RequestFactory {
       putObjectRequestBuilder.metadata(options.getHeaders());
     }
 
-    // TODO: set ACL & optional request params. Also check difference between inputStream and file
-    //  put methods and ensure you've covered all the diffs.
-    //    setOptionalPutRequestParameters(putObjectRequest);
-//    putObjectRequest.setCannedAcl(cannedACL);
+    // TODO: CannedACL will be converted to V2's ObjectCannedACL during MPU work.
+    if (cannedACL != null) {
+      putObjectRequestBuilder.acl(cannedACL.toString());
+    }
+
     if (storageClass != null) {
       putObjectRequestBuilder.storageClass(storageClass.toString());
     }
-    // TODO: check this
-    // putObjectRequest.setMetadata(metadata);
 
     return putObjectRequestBuilder.build();
    // return prepareRequest(putObjectRequestBuilder);
   }
 
+  @Override
   public PutObjectRequest.Builder buildPutObjectRequest(long length, boolean isDirectoryMarker) {
 
     PutObjectRequest.Builder putObjectRequestBuilder = PutObjectRequest.builder();
 
-    final S3AEncryptionMethods algorithm
-        = getServerSideEncryptionAlgorithm();
-
     if (length >= 0) {
       putObjectRequestBuilder.contentLength(length);
-    }
-
-    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
-      putObjectRequestBuilder.serverSideEncryption(algorithm.getMethod());
     }
 
     if (contentEncoding != null && !isDirectoryMarker) {
@@ -391,6 +363,27 @@ public class RequestFactoryImpl implements RequestFactory {
     }
 
     return putObjectRequestBuilder;
+  }
+
+  private void putEncryptionParameters(PutObjectRequest.Builder putObjectRequestBuilder) {
+    final S3AEncryptionMethods algorithm
+        = getServerSideEncryptionAlgorithm();
+
+    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
+      putObjectRequestBuilder.serverSideEncryption(algorithm.getMethod());
+    } else if (S3AEncryptionMethods.SSE_KMS == algorithm) {
+      putObjectRequestBuilder.serverSideEncryption(ServerSideEncryption.AWS_KMS);
+      // Set the KMS key if present, else S3 uses AWS managed key.
+      EncryptionSecretOperations.getSSEAwsKMSKey(encryptionSecrets)
+          .ifPresent(kmsKey -> putObjectRequestBuilder.ssekmsKeyId(kmsKey));
+    } else if (S3AEncryptionMethods.SSE_C == algorithm) {
+      String base64customerKey = EncryptionSecretOperations.getSSECustomerKey(encryptionSecrets);
+
+      putObjectRequestBuilder
+          .sseCustomerAlgorithm(ServerSideEncryption.AES256.name())
+          .sseCustomerKey(base64customerKey)
+          .sseCustomerKeyMD5(Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
+    }
   }
 
   @Override
@@ -404,7 +397,7 @@ public class RequestFactoryImpl implements RequestFactory {
     putObjectRequestBuilder.contentType(HeaderProcessing.CONTENT_TYPE_X_DIRECTORY);
 
     PutObjectRequest putObjectRequest =
-        newPutObjectRequest(putObjectRequestBuilder, key, null, false);
+        newPutObjectRequest(putObjectRequestBuilder, key, null);
     return putObjectRequest;
   }
 
@@ -461,11 +454,21 @@ public class RequestFactoryImpl implements RequestFactory {
 
   @Override
   public HeadObjectRequest newGetObjectMetadataRequest(String key) {
-    HeadObjectRequest request = HeadObjectRequest.builder().bucket(getBucket()).key(key).build();
-    //SSE-C requires to be filled in if enabled for object metadata
-//    setOptionalGetObjectMetadataParameters(request);
-//    return prepareRequest(request);
-    return request;
+    String base64customerKey = EncryptionSecretOperations.getSSECustomerKey(encryptionSecrets);
+
+    HeadObjectRequest.Builder request = HeadObjectRequest.builder()
+        .bucket(getBucket())
+        .key(key);
+
+    // need to set key to get metadata for objects encrypted with SSE_C
+    if (getServerSideEncryptionAlgorithm() == S3AEncryptionMethods.SSE_C) {
+      request
+          .sseCustomerAlgorithm(ServerSideEncryption.AES256.name())
+          .sseCustomerKey(base64customerKey)
+          .sseCustomerKeyMD5(Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
+    }
+
+    return request.build();
   }
 
   @Override

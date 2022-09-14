@@ -34,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.s3a.Retries;
+import org.apache.hadoop.fs.s3a.S3ADataBlocks;
 import org.apache.hadoop.fs.s3a.WriteOperationHelper;
 import org.apache.hadoop.fs.s3a.commit.PutTracker;
 import org.apache.hadoop.fs.s3a.commit.files.SinglePendingCommit;
@@ -182,9 +183,9 @@ public class MagicCommitTracker extends PutTracker {
    */
   @Retries.RetryTranslated
   private void upload(PutObjectRequest request, InputStream inputStream) throws IOException {
-    trackDurationOfInvocation(trackerStatistics,
-        COMMITTER_MAGIC_MARKER_PUT.getSymbol(), () ->
-            writer.uploadObject(request, PutObjectOptions.keepingDirs(), inputStream));
+    trackDurationOfInvocation(trackerStatistics, COMMITTER_MAGIC_MARKER_PUT.getSymbol(),
+        () -> writer.uploadObject(request, PutObjectOptions.keepingDirs(),
+            new S3ADataBlocks.BlockUploadData(inputStream)));
   }
 
   @Override

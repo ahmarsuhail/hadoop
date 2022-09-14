@@ -409,13 +409,6 @@ public class TestStreamChangeTracker extends HadoopTestBase {
   private CopyObjectResponse newCopyResult(String eTag, String versionId) {
     CopyObjectResponse.Builder copyObjectResponseBuilder = CopyObjectResponse.builder();
 
-    // TODO: Check this, these don't seem to be modelled.
-//    copyResult.setSourceBucketName(BUCKET);
-//    copyResult.setSourceKey(OBJECT);
-//    copyResult.setDestinationBucketName(BUCKET);
-//    copyResult.setDestinationKey(DEST_OBJECT);
-
-
     return copyObjectResponseBuilder.versionId(versionId)
         .copyObjectResult(CopyObjectResult.builder().eTag(eTag).build()).build();
   }

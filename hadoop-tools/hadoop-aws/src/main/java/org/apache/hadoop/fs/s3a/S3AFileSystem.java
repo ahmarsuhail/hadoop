@@ -80,6 +80,15 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.transfer.s3.CompletedCopy;
+import software.amazon.awssdk.transfer.s3.CompletedFileUpload;
+import software.amazon.awssdk.transfer.s3.Copy;
+import software.amazon.awssdk.transfer.s3.CopyRequest;
+import software.amazon.awssdk.transfer.s3.FileUpload;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.UploadFileRequest;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -237,16 +246,6 @@ import static org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.trackDura
 import static org.apache.hadoop.io.IOUtils.cleanupWithLogger;
 import static org.apache.hadoop.util.Preconditions.checkArgument;
 import static org.apache.hadoop.util.functional.RemoteIterators.typeCastingRemoteIterator;
-
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectResponse;
-import software.amazon.awssdk.transfer.s3.CompletedCopy;
-import software.amazon.awssdk.transfer.s3.CompletedFileUpload;
-import software.amazon.awssdk.transfer.s3.CopyRequest;
-import software.amazon.awssdk.transfer.s3.FileUpload;
-import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.UploadFileRequest;
-import software.amazon.awssdk.transfer.s3.UploadRequest;
 
 /**
  * The core S3A Filesystem implementation.
@@ -1089,7 +1088,6 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     transferConfiguration.setMultipartCopyPartSize(partSize);
     transferConfiguration.setMultipartCopyThreshold(multiPartThreshold);
 
-    // TODO: Thresholds can no longer be configured. Check if this is ok?
     S3TransferManager transferManagerV2 = S3TransferManager.builder()
         .s3ClientConfiguration(b -> b.minimumPartSizeInBytes(partSize))
         .build();
@@ -2807,8 +2805,8 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
    * @return the request
    */
   public PutObjectRequest newPutObjectRequest(String key,
-      PutObjectRequest.Builder putObjectRequestBuilder, boolean isFile) {
-    return requestFactory.newPutObjectRequest(putObjectRequestBuilder, key, null, isFile);
+      PutObjectRequest.Builder putObjectRequestBuilder) {
+    return requestFactory.newPutObjectRequest(putObjectRequestBuilder, key, null);
   }
 
   /**
@@ -3773,7 +3771,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
                 buildPutObjectRequest(file.length());
             Progressable progress = null;
             PutObjectRequest putObjectRequest =
-                newPutObjectRequest(key, putObjectRequestBuilder, true);
+                newPutObjectRequest(key, putObjectRequestBuilder);
             S3AFileSystem.this.invoker.retry(
                 "putObject(" + "" + ")", to.toString(),
                 true,
@@ -3823,30 +3821,13 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         new ProgressableProgressListener(this, putObjectRequest.key(), progress);
     UploadInfo info = putObject(putObjectRequest, file, listener);
     PutObjectResponse result = waitForUploadCompletion(key, info).response();
-    uploadCompleted(info.getUpload(), listener, putObjectRequest.key());
+    listener.uploadCompleted(info.getFileUpload());
 
     // post-write actions
     finishedWrite(key, len,
         result.eTag(), result.versionId(), putOptions);
     return result;
   }
-
-  /**
-   * Method to invoke after upload has completed.
-   * This can handle race conditions in setup/teardown.
-   * @return the number of bytes which were transferred after the notification
-   */
-  public long uploadCompleted(FileUpload upload, ProgressableProgressListener listener,
-      String key) {
-    long delta =
-        upload.progress().snapshot().bytesTransferred() - listener.getLastBytesTransferred();
-    if (delta > 0) {
-      LOG.debug("S3A write delta changed after finished: {} bytes", delta);
-      incrementPutProgressStatistics(key, delta);
-    }
-    return delta;
-  }
-
 
   /**
    * Wait for an upload to complete.
@@ -3864,7 +3845,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
   @Retries.OnceRaw
   CompletedFileUpload waitForUploadCompletion(String key, UploadInfo uploadInfo)
       throws InterruptedIOException {
-    FileUpload upload = uploadInfo.getUpload();
+    FileUpload upload = uploadInfo.getFileUpload();
     // TODO: Check what this logic should be updated to. 
     //  this no longer throws an interrupted exception.
   //  try {
@@ -4137,7 +4118,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
           changeTracker.maybeApplyConstraint(copyObjectRequest);
           incrementStatistic(OBJECT_COPY_REQUESTS);
 
-          software.amazon.awssdk.transfer.s3.Copy copy = transferManagerV2.copy(
+          Copy copy = transferManagerV2.copy(
               CopyRequest.builder().copyObjectRequest(copyObjectRequest).build());
 
           CompletedCopy completedCopy = copy.completionFuture().join();

@@ -111,7 +111,7 @@ public class ITestS3AMiscOperations extends AbstractS3ATestBase {
       PutObjectRequest.Builder putObjectRequestBuilder = factory.buildPutObjectRequest(-1, false);
       Path path = path("putDirect");
       PutObjectRequest putObjectRequest =
-          factory.newPutObjectRequest(putObjectRequestBuilder, path.toUri().getPath(), null, false);
+          factory.newPutObjectRequest(putObjectRequestBuilder, path.toUri().getPath(), null);
       LambdaTestUtils.intercept(IllegalStateException.class,
           () -> fs.putObjectDirect(putObjectRequest, PutObjectOptions.keepingDirs(),
               new S3ADataBlocks.BlockUploadData(new ByteArrayInputStream("PUT".getBytes())),

@@ -254,8 +254,7 @@ public class WriteOperationHelper implements WriteOperations {
     return getRequestFactory().newPutObjectRequest(
         putObjectRequestBuilder,
         destKey,
-        options,
-        isFile);
+        options);
   }
 
 
@@ -555,12 +554,11 @@ public class WriteOperationHelper implements WriteOperations {
    */
   @Retries.RetryTranslated
   public void uploadObject(PutObjectRequest putObjectRequest,
-      PutObjectOptions putOptions, InputStream inputStream)
+      PutObjectOptions putOptions, S3ADataBlocks.BlockUploadData uploadData)
       throws IOException {
 
     retry("Writing Object", putObjectRequest.key(), true, withinAuditSpan(getAuditSpan(),
-        () -> owner.putObjectDirect(putObjectRequest, putOptions,
-            new S3ADataBlocks.BlockUploadData(inputStream), false)));
+        () -> owner.putObjectDirect(putObjectRequest, putOptions, uploadData, false)));
   }
 
   /**

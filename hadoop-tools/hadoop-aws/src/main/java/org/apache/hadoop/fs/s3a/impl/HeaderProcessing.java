@@ -23,6 +23,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -304,6 +305,7 @@ public class HeaderProcessing extends AbstractStoreOperation {
     maybeSetHeader(headers, XA_CONTENT_LANGUAGE,
         md.contentLanguage());
     // If CSE is enabled, use the unencrypted content length.
+    // TODO: CSE is not supported yet, add these headers in during CSE work.
 //    if (md.getUserMetaDataOf(Headers.CRYPTO_CEK_ALGORITHM) != null
 //        && md.getUserMetaDataOf(Headers.UNENCRYPTED_CONTENT_LENGTH) != null) {
 //      maybeSetHeader(headers, XA_CONTENT_LENGTH,
@@ -314,14 +316,17 @@ public class HeaderProcessing extends AbstractStoreOperation {
 //    }
 //    maybeSetHeader(headers, XA_CONTENT_MD5,
 //        md.getContentMD5());
-    maybeSetHeader(headers, XA_CONTENT_RANGE,
-        md.sdkHttpResponse().headers().get("Content-Range"));
+    // TODO: Add back in else block during CSE work.
+    maybeSetHeader(headers, XA_CONTENT_LENGTH,
+        md.contentLength());
+//    maybeSetHeader(headers, XA_CONTENT_RANGE,
+//        md.sdkHttpResponse().headers().get("Content-Range"));
     maybeSetHeader(headers, XA_CONTENT_TYPE,
         md.contentType());
     maybeSetHeader(headers, XA_ETAG,
         md.eTag());
     maybeSetHeader(headers, XA_LAST_MODIFIED,
-        md.lastModified());
+       Date.from(md.lastModified()));
 
     // AWS custom headers
     maybeSetHeader(headers, XA_ARCHIVE_STATUS,
@@ -513,9 +518,11 @@ public class HeaderProcessing extends AbstractStoreOperation {
 //    if (source.getRestoreExpirationTime() != null) {
 //      dest.setRestoreExpirationTime(source.getRestoreExpirationTime());
 //    }
-//    if (source.getSSEAlgorithm() != null) {
-//      dest.setSSEAlgorithm(source.getSSEAlgorithm());
-//    }
+
+    if (source.serverSideEncryption() != null) {
+        requestBuilder.serverSideEncryption(source.serverSideEncryption());
+    }
+
     if (source.sseCustomerAlgorithm() != null) {
       requestBuilder.copySourceSSECustomerAlgorithm(source.sseCustomerAlgorithm());
     }
