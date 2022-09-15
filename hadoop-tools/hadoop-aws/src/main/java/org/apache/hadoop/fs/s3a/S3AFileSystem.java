@@ -1088,7 +1088,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     transferConfiguration.setMultipartCopyPartSize(partSize);
     transferConfiguration.setMultipartCopyThreshold(multiPartThreshold);
 
-    S3TransferManager transferManagerV2 = S3TransferManager.builder()
+      transferManagerV2 = S3TransferManager.builder()
         .s3ClientConfiguration(b -> b.minimumPartSizeInBytes(partSize))
         .build();
 

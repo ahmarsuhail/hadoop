@@ -67,7 +67,6 @@ import org.apache.hadoop.fs.s3a.auth.delegation.EncryptionSecretOperations;
 import org.apache.hadoop.fs.s3a.auth.delegation.EncryptionSecrets;
 
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
-import static org.apache.hadoop.fs.s3a.Constants.AWS_ENCRYPTION_SSE_KMS;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.DEFAULT_UPLOAD_PART_COUNT_LIMIT;
 import static org.apache.hadoop.util.Preconditions.checkArgument;
 import static org.apache.hadoop.util.Preconditions.checkNotNull;
@@ -272,7 +271,9 @@ public class RequestFactoryImpl implements RequestFactory {
     Map<String, String> dstom = new HashMap<>();
     HeaderProcessing.cloneObjectMetadata(srcom, dstom, copyObjectRequestBuilder);
     copyEncryptionParameters(srcom, copyObjectRequestBuilder);
-    copyObjectRequestBuilder.acl(cannedACL.toString());
+    if (cannedACL != null) {
+      copyObjectRequestBuilder.acl(cannedACL.toString());
+    }
     copyObjectRequestBuilder.metadata(dstom);
     if (srcom.storageClass() != null) {
       copyObjectRequestBuilder.storageClass(srcom.storageClass());
