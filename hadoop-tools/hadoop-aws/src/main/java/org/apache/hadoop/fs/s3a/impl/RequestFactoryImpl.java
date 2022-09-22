@@ -55,6 +55,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.MetadataDirective;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 import software.amazon.awssdk.utils.Md5Utils;
@@ -274,7 +275,9 @@ public class RequestFactoryImpl implements RequestFactory {
     if (cannedACL != null) {
       copyObjectRequestBuilder.acl(cannedACL.toString());
     }
-    copyObjectRequestBuilder.metadata(dstom);
+    copyObjectRequestBuilder
+        .metadata(dstom)
+        .metadataDirective(MetadataDirective.REPLACE);
     if (srcom.storageClass() != null) {
       copyObjectRequestBuilder.storageClass(srcom.storageClass());
     }
@@ -337,6 +340,8 @@ public class RequestFactoryImpl implements RequestFactory {
       putObjectRequestBuilder.metadata(options.getHeaders());
     }
 
+    putEncryptionParameters(putObjectRequestBuilder);
+
     // TODO: CannedACL will be converted to V2's ObjectCannedACL during MPU work.
     if (cannedACL != null) {
       putObjectRequestBuilder.acl(cannedACL.toString());
@@ -397,9 +402,12 @@ public class RequestFactoryImpl implements RequestFactory {
 
     putObjectRequestBuilder.contentType(HeaderProcessing.CONTENT_TYPE_X_DIRECTORY);
 
-    PutObjectRequest putObjectRequest =
-        newPutObjectRequest(putObjectRequestBuilder, key, null);
-    return putObjectRequest;
+    putEncryptionParameters(putObjectRequestBuilder);
+    if(cannedACL != null) {
+      putObjectRequestBuilder.acl(cannedACL.toString());
+    }
+
+    return putObjectRequestBuilder.bucket(getBucket()).key(key).build();
   }
 
   @Override

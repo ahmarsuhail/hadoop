@@ -54,6 +54,8 @@ import org.apache.hadoop.util.Lists;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 import javax.annotation.Nullable;
@@ -86,6 +88,7 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.hadoop.fs.s3a.Constants.*;
 import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isUnknownBucket;
+import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isUnknownBucketV2;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.CSE_PADDING_LENGTH;
 import static org.apache.hadoop.fs.s3a.impl.MultiObjectDeleteSupport.translateDeleteException;
 import static org.apache.hadoop.io.IOUtils.cleanupWithLogger;
@@ -172,6 +175,46 @@ public final class S3AUtils {
       AmazonClientException exception) {
     return translateException(operation, path.toString(), exception);
   }
+
+  // TODO: This is a temporary and incomplete implementation of error translations, done only as
+  //  it is required by GetObjectMetadata so it can throw a FNFE. Will be done properly as part
+  //  of error translation work.
+  public static IOException translateExceptionV2(@Nullable String operation,
+      String path,
+      SdkException exception) {
+    String message = String.format("%s%s: %s",
+        operation,
+        StringUtils.isNotEmpty(path)? (" on " + path) : "",
+        exception);
+
+    AwsServiceException ase = (AwsServiceException) exception;
+
+    int status = ase.statusCode();
+    IOException ioe;
+    message = message + ":" + ase.awsErrorDetails().errorCode();
+    switch (status) {
+
+    case 404:
+      if (isUnknownBucketV2(ase)) {
+        // this is a missing bucket
+        ioe = new UnknownStoreException(path, message, ase);
+      } else {
+        // a normal unknown object
+        ioe = new FileNotFoundException(message);
+        ioe.initCause(ase);
+      }
+      break;
+
+    default:
+      // no specific exit code. Choose an IOE subclass based on the class
+      // of the caught exception
+      ioe = new IOException();
+      break;
+    }
+
+    return ioe;
+  }
+
 
   /**
    * Translate an exception raised in an operation into an IOException.

@@ -223,6 +223,7 @@ import static org.apache.hadoop.fs.s3a.impl.CreateFileBuilder.OPTIONS_CREATE_FIL
 import static org.apache.hadoop.fs.s3a.impl.CreateFileBuilder.OPTIONS_CREATE_FILE_OVERWRITE;
 import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isObjectNotFound;
 import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isUnknownBucket;
+import static org.apache.hadoop.fs.s3a.impl.ErrorTranslation.isUnknownBucketV2;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.AP_INACCESSIBLE;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.AP_REQUIRED_EXCEPTION;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.ARN_BUCKET_OPTION;
@@ -2843,9 +2844,10 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     LOG.debug("PUT {} bytes to {} via transfer manager ", len, putObjectRequest.key());
     incrementPutStartStatistics(len);
 
+    // TODO: Something not right with the TM listener, fix
     FileUpload upload = transferManagerV2.uploadFile(
-        UploadFileRequest.builder().putObjectRequest(putObjectRequest).source(file)
-            .overrideConfiguration(o -> o.addListener(listener)).build());
+        UploadFileRequest.builder().putObjectRequest(putObjectRequest).source(file).build());
+          //  .overrideConfiguration(o -> o.addListener(listener)).build());
 
     return new UploadInfo(upload, len);
   }
@@ -3623,6 +3625,9 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
       }  catch (AwsServiceException e) {
         // TODO: This and above exception handling blocks will be updated during exception
         //  handling work.
+        if (e.statusCode() != SC_404 || isUnknownBucketV2(e)) {
+          throw translateExceptionV2("getFileStatus", path.toString(), e);
+        }
       }
     }
 
@@ -3670,6 +3675,10 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         }
       } catch (AmazonClientException e) {
         throw translateException("getFileStatus", path, e);
+      } catch (AwsServiceException e) {
+        if (e.statusCode() != SC_404 || isUnknownBucketV2(e)) {
+          throw translateExceptionV2("getFileStatus", path.toString(), e);
+        }
       }
     }
 
