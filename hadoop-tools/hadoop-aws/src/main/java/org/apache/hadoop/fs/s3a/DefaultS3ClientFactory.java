@@ -51,12 +51,16 @@ import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import software.amazon.awssdk.core.SdkClient;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -257,6 +261,72 @@ public class DefaultS3ClientFactory extends Configured
     //  can be done, as SDK V2 only seems to have a metrics publisher.
 
     return s3ClientBuilder.build();
+  }
+
+  public S3AsyncClient createS3AsyncClient(
+      final URI uri,
+      final S3ClientCreationParameters parameters) throws IOException {
+
+    Configuration conf = getConf();
+    bucket = uri.getHost();
+
+    final ClientOverrideConfiguration.Builder clientOverrideConfigBuilder =
+        AWSClientConfig.createClientConfigBuilder(conf);
+
+//    final NettyNioAsyncHttpClient.Builder asyncHttpClientBuilder =
+//        AWSClientConfig.createAsyncHttpClientBuilder(conf);
+
+    final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
+
+//    final software.amazon.awssdk.http.nio.netty.ProxyConfiguration.Builder proxyConfigBuilder =
+//        AWSClientConfig.createAsyncProxyConfigurationBuilder(conf, bucket);
+
+    S3AsyncClientBuilder s3AsyncClientBuilder = S3AsyncClient.builder();
+
+    // add any headers
+    parameters.getHeaders().forEach((h, v) -> clientOverrideConfigBuilder.putHeader(h, v));
+
+    if (parameters.isRequesterPays()) {
+      // All calls must acknowledge requester will pay via header.
+      clientOverrideConfigBuilder.putHeader(REQUESTER_PAYS_HEADER, REQUESTER_PAYS_HEADER_VALUE);
+    }
+
+    if (!StringUtils.isEmpty(parameters.getUserAgentSuffix())) {
+      clientOverrideConfigBuilder.putAdvancedOption(SdkAdvancedClientOption.USER_AGENT_SUFFIX,
+          parameters.getUserAgentSuffix());
+    }
+
+    clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());
+   // asyncHttpClientBuilder.proxyConfiguration(proxyConfigBuilder.build());
+
+//    s3AsyncClientBuilder.httpClientBuilder(asyncHttpClientBuilder)
+//        .overrideConfiguration(clientOverrideConfigBuilder.build());
+
+    // use adapter classes so V1 credential providers continue to work. This will be moved to
+    // AWSCredentialProviderList.add() when that class is updated.
+    s3AsyncClientBuilder.credentialsProvider(
+        V1V2AwsCredentialProviderAdapter.adapt(parameters.getCredentialSet()));
+
+    URI endpoint = getS3Endpoint(parameters.getEndpoint(), conf);
+
+    Region region =
+        getS3Region(conf.getTrimmed(AWS_REGION), parameters.getCredentialSet());
+
+    LOG.debug("Using endpoint {}; and region {}", endpoint, region);
+
+    s3AsyncClientBuilder.endpointOverride(endpoint).region(region);
+
+    S3Configuration s3Configuration = S3Configuration.builder()
+        .pathStyleAccessEnabled(parameters.isPathStyleAccess())
+        .build();
+
+    s3AsyncClientBuilder.serviceConfiguration(s3Configuration);
+
+    // TODO: Some configuration done in configureBasicParams is not done yet.
+    //  Request handlers will be added during auditor work. Need to verify how metrics collection
+    //  can be done, as SDK V2 only seems to have a metrics publisher.
+
+    return s3AsyncClientBuilder.build();
   }
 
 

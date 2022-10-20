@@ -32,7 +32,6 @@ import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.model.SSECustomerKey;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import org.apache.hadoop.util.Preconditions;
 import org.slf4j.Logger;
@@ -57,6 +56,7 @@ import software.amazon.awssdk.services.s3.model.MetadataDirective;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.utils.Md5Utils;
@@ -572,12 +572,19 @@ public class RequestFactoryImpl implements RequestFactory {
   }
 
   @Override
-  public SelectObjectContentRequest newSelectRequest(String key) {
-    SelectObjectContentRequest request = new SelectObjectContentRequest();
-    request.setBucketName(bucket);
-    request.setKey(key);
-    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
-    return prepareRequest(request);
+  public SelectObjectContentRequest.Builder newSelectRequestBuilder(String key) {
+    SelectObjectContentRequest.Builder requestBuilder =
+        SelectObjectContentRequest.builder().bucket(bucket).key(key);
+
+
+      EncryptionSecretOperations.getSSECustomerKey(encryptionSecrets)
+          .ifPresent(base64customerKey -> {
+            requestBuilder.sseCustomerAlgorithm(ServerSideEncryption.AES256.name())
+                .sseCustomerKey(base64customerKey).sseCustomerKeyMD5(
+                    Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
+          });
+
+    return prepareV2Request(requestBuilder);
   }
 
   @Override

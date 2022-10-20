@@ -28,7 +28,6 @@ import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.model.SSECustomerKey;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 
 import org.apache.hadoop.fs.PathIOException;
@@ -52,6 +51,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 import software.amazon.awssdk.services.s3.model.StorageClass;
 
 /**
@@ -236,12 +236,12 @@ public interface RequestFactory {
       long offset) throws PathIOException;
 
   /**
-   * Create a S3 Select request for the destination object.
+   * Create a S3 Select request builder for the destination object.
    * This does not build the query.
    * @param key object key
    * @return the request
    */
-  SelectObjectContentRequest newSelectRequest(String key);
+  SelectObjectContentRequest.Builder newSelectRequestBuilder(String key);
 
   /**
    * Create the (legacy) V1 list request builder.

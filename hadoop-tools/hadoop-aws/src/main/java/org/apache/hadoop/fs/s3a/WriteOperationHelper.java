@@ -24,11 +24,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import com.amazonaws.services.s3.model.SelectObjectContentResult;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 import org.slf4j.Logger;
@@ -41,6 +40,8 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.MultipartUpload;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentResponse;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -50,6 +51,7 @@ import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.s3a.api.RequestFactory;
 import org.apache.hadoop.fs.s3a.impl.PutObjectOptions;
 import org.apache.hadoop.fs.s3a.impl.StoreContext;
+import org.apache.hadoop.fs.s3a.select.SelectHandler;
 import org.apache.hadoop.fs.s3a.statistics.S3AStatisticsContext;
 import org.apache.hadoop.fs.s3a.select.SelectBinding;
 import org.apache.hadoop.fs.store.audit.AuditSpan;
@@ -653,9 +655,9 @@ public class WriteOperationHelper implements WriteOperations {
    * @param path pre-qualified path for query
    * @return the request
    */
-  public SelectObjectContentRequest newSelectRequest(Path path) {
+  public SelectObjectContentRequest.Builder newSelectRequest(Path path) {
     try (AuditSpan span = getAuditSpan()) {
-      return getRequestFactory().newSelectRequest(
+      return getRequestFactory().newSelectRequestBuilder(
           storeContext.pathToKey(path));
     }
   }
@@ -671,22 +673,23 @@ public class WriteOperationHelper implements WriteOperations {
    * @throws IOException failure
    */
   @Retries.RetryTranslated
-  public SelectObjectContentResult select(
+  public void select(
       final Path source,
       final SelectObjectContentRequest request,
-      final String action)
+      final String action,
+      final SelectHandler selectHandler)
       throws IOException {
     // no setting of span here as the select binding is (statically) created
     // without any span.
-    String bucketName = request.getBucketName();
+    String bucketName = request.bucket();
     Preconditions.checkArgument(bucket.equals(bucketName),
         "wrong bucket: %s", bucketName);
     if (LOG.isDebugEnabled()) {
       LOG.debug("Initiating select call {} {}",
-          source, request.getExpression());
+          source, request.expression());
       LOG.debug(SelectBinding.toString(request));
     }
-    return invoker.retry(
+    invoker.retry(
         action,
         source.toString(),
         true,
@@ -694,7 +697,7 @@ public class WriteOperationHelper implements WriteOperations {
           try (DurationInfo ignored =
                    new DurationInfo(LOG, "S3 Select operation")) {
             try {
-              return writeOperationHelperCallbacks.selectObjectContent(request);
+              writeOperationHelperCallbacks.selectObjectContent(request, selectHandler).join();
             } catch (AmazonS3Exception e) {
               LOG.error("Failure of S3 Select request against {}",
                   source);
@@ -746,7 +749,7 @@ public class WriteOperationHelper implements WriteOperations {
      * @param request selectObjectContent request
      * @return selectObjectContentResult
      */
-    SelectObjectContentResult selectObjectContent(SelectObjectContentRequest request);
+    CompletableFuture<Void> selectObjectContent(SelectObjectContentRequest request, SelectHandler t);
 
     /**
      * Initiates a complete multi-part upload request.

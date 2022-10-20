@@ -20,17 +20,17 @@ package org.apache.hadoop.fs.s3a.select;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.amazonaws.AbortedException;
-import com.amazonaws.services.s3.model.SelectObjectContentEvent;
-import com.amazonaws.services.s3.model.SelectObjectContentEventVisitor;
-import com.amazonaws.services.s3.model.SelectObjectContentResult;
-import com.amazonaws.services.s3.model.SelectRecordsInputStream;
 import org.apache.hadoop.util.Preconditions;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.RecordsEvent;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentEventStream.EventType;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -93,7 +93,7 @@ public class SelectInputStream extends FSInputStream implements
    * Abortable response stream.
    * This is guaranteed to never be null.
    */
-  private final SelectRecordsInputStream wrappedStream;
+  private final InputStream wrappedStream;
 
   private final String bucket;
 
@@ -119,7 +119,7 @@ public class SelectInputStream extends FSInputStream implements
   public SelectInputStream(
       final S3AReadOpContext readContext,
       final S3ObjectAttributes objectAttributes,
-      final SelectObjectContentResult selectResponse) throws IOException {
+      final SelectHandler selectHandler) throws IOException {
     Preconditions.checkArgument(isNotEmpty(objectAttributes.getBucket()),
         "No Bucket");
     Preconditions.checkArgument(isNotEmpty(objectAttributes.getKey()),
@@ -132,17 +132,28 @@ public class SelectInputStream extends FSInputStream implements
     this.readahead = readContext.getReadahead();
     this.streamStatistics = readContext.getS3AStatisticsContext()
         .newInputStreamStatistics();
-    SelectRecordsInputStream stream = once(
-        "S3 Select",
-        uri,
-        () -> selectResponse.getPayload()
-            .getRecordsInputStream(new SelectObjectContentEventVisitor() {
-              @Override
-              public void visit(final SelectObjectContentEvent.EndEvent event) {
-                LOG.debug("Completed successful S3 select read from {}", uri);
-                completedSuccessfully.set(true);
-              }
-            }));
+
+    // This is what was there before
+//    SelectRecordsInputStream stream = once(
+//        "S3 Select",
+//        uri,
+//        () -> selectResponse.getPayload()
+//            .getRecordsInputStream(new SelectObjectContentEventVisitor() {
+//              @Override
+//              public void visit(final SelectObjectContentEvent.EndEvent event) {
+//                LOG.debug("Completed successful S3 select read from {}", uri);
+//                completedSuccessfully.set(true);
+//              }
+//            }));
+
+    // This needs to be updated to get an input stream from receivedEvents.
+    RecordsEvent recordsEvent = (RecordsEvent) selectHandler.receivedEvents.stream()
+        .filter(e -> e.sdkEventType() == EventType.RECORDS)
+        .sequential();
+
+    InputStream stream = recordsEvent.payload().asInputStream();
+
+
     this.wrappedStream = checkNotNull(stream);
     // this stream is already opened, so mark as such in the statistics.
     streamStatistics.streamOpened();
@@ -167,7 +178,7 @@ public class SelectInputStream extends FSInputStream implements
         if (shouldAbort) {
           // yes, more data. Abort and add this fact to the stream stats
           aborted = true;
-          wrappedStream.abort();
+        //  wrappedStream.abort();
         }
       } catch (IOException | AbortedException e) {
         LOG.debug("While closing stream", e);
@@ -375,7 +386,7 @@ public class SelectInputStream extends FSInputStream implements
   public void abort() {
     if (!closed.get()) {
       LOG.debug("Aborting");
-      wrappedStream.abort();
+     // wrappedStream.abort();
     }
   }
 

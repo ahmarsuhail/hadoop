@@ -21,16 +21,16 @@ package org.apache.hadoop.fs.s3a.select;
 import java.io.IOException;
 import java.util.Locale;
 
-import com.amazonaws.services.s3.model.CSVInput;
-import com.amazonaws.services.s3.model.CSVOutput;
-import com.amazonaws.services.s3.model.ExpressionType;
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.OutputSerialization;
-import com.amazonaws.services.s3.model.QuoteFields;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import org.apache.hadoop.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.services.s3.model.CSVInput;
+import software.amazon.awssdk.services.s3.model.CSVOutput;
+import software.amazon.awssdk.services.s3.model.ExpressionType;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
+import software.amazon.awssdk.services.s3.model.QuoteFields;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -145,9 +145,9 @@ public class SelectBinding {
     Preconditions.checkState(isEnabled(),
         "S3 Select is not enabled for %s", path);
 
-    SelectObjectContentRequest request = operations.newSelectRequest(path);
+    SelectObjectContentRequest.Builder request = operations.newSelectRequest(path);
     buildRequest(request, expression, builderOptions);
-    return request;
+    return request.build();
   }
 
   /**
@@ -175,14 +175,15 @@ public class SelectBinding {
     }
     boolean sqlInErrors = builderOptions.getBoolean(SELECT_ERRORS_INCLUDE_SQL,
         errorsIncludeSql);
-    String expression = request.getExpression();
+    String expression = request.expression();
     final String errorText = sqlInErrors ? expression : "Select";
     if (sqlInErrors) {
       LOG.info("Issuing SQL request {}", expression);
     }
+    SelectHandler selectHandler = new SelectHandler();
+    operations.select(path, request, errorText, selectHandler);
     return new SelectInputStream(readContext,
-        objectAttributes,
-        operations.select(path, request, errorText));
+        objectAttributes, selectHandler);
   }
 
   /**
@@ -197,14 +198,14 @@ public class SelectBinding {
    *   <li>The default values in {@link SelectConstants}</li>
    * </ol>
    *
-   * @param request request to build up
+   * @param requestBuilder request to build up
    * @param expression SQL expression
    * @param builderOptions the options which came in from the openFile builder.
    * @throws IllegalArgumentException if an option is somehow invalid.
    * @throws IOException if an option is somehow invalid.
    */
   void buildRequest(
-      final SelectObjectContentRequest request,
+      final SelectObjectContentRequest.Builder requestBuilder,
       final String expression,
       final Configuration builderOptions)
       throws IllegalArgumentException, IOException {
@@ -224,10 +225,10 @@ public class SelectBinding {
     Preconditions.checkArgument(SELECT_FORMAT_CSV.equals(outputFormat),
         "Unsupported output format %s", outputFormat);
 
-    request.setExpressionType(ExpressionType.SQL);
-    request.setExpression(expandBackslashChars(expression));
+    requestBuilder.expressionType(ExpressionType.SQL);
+    requestBuilder.expression(expandBackslashChars(expression));
 
-    InputSerialization inputSerialization = buildCsvInputRequest(ownerConf,
+    InputSerialization.Builder inputSerialization = buildCsvInputRequest(ownerConf,
         builderOptions);
     String compression = opt(builderOptions,
         ownerConf,
@@ -235,11 +236,11 @@ public class SelectBinding {
         COMPRESSION_OPT_NONE,
         true).toUpperCase(Locale.ENGLISH);
     if (isNotEmpty(compression)) {
-      inputSerialization.setCompressionType(compression);
+      inputSerialization.compressionType(compression);
     }
-    request.setInputSerialization(inputSerialization);
+    requestBuilder.inputSerialization(inputSerialization.build());
 
-    request.setOutputSerialization(buildCSVOutput(ownerConf, builderOptions));
+    requestBuilder.outputSerialization(buildCSVOutput(ownerConf, builderOptions));
 
   }
 
@@ -251,7 +252,7 @@ public class SelectBinding {
    * @throws IllegalArgumentException argument failure
    * @throws IOException validation failure
    */
-  public InputSerialization buildCsvInputRequest(
+  public InputSerialization.Builder buildCsvInputRequest(
       final Configuration ownerConf,
       final Configuration builderOptions)
       throws IllegalArgumentException, IOException {
@@ -283,20 +284,17 @@ public class SelectBinding {
         CSV_INPUT_QUOTE_ESCAPE_CHARACTER_DEFAULT);
 
     // CSV input
-    CSVInput csv = new CSVInput();
-    csv.setFieldDelimiter(fieldDelimiter);
-    csv.setRecordDelimiter(recordDelimiter);
-    csv.setComments(commentMarker);
-    csv.setQuoteCharacter(quoteCharacter);
+    CSVInput.Builder csvBuilder = CSVInput.builder();
+    csvBuilder.fieldDelimiter(fieldDelimiter);
+    csvBuilder.recordDelimiter(recordDelimiter);
+    csvBuilder.comments(commentMarker);
+    csvBuilder.quoteCharacter(quoteCharacter);
     if (StringUtils.isNotEmpty(quoteEscapeCharacter)) {
-      csv.setQuoteEscapeCharacter(quoteEscapeCharacter);
+      csvBuilder.quoteEscapeCharacter(quoteEscapeCharacter);
     }
-    csv.setFileHeaderInfo(headerInfo);
+    csvBuilder.fileHeaderInfo(headerInfo);
 
-    InputSerialization inputSerialization = new InputSerialization();
-    inputSerialization.setCsv(csv);
-
-    return inputSerialization;
+    return InputSerialization.builder().csv(csvBuilder.build());
 
   }
 
@@ -333,20 +331,20 @@ public class SelectBinding {
         CSV_OUTPUT_QUOTE_FIELDS,
         CSV_OUTPUT_QUOTE_FIELDS_ALWAYS).toUpperCase(Locale.ENGLISH);
 
-    // output is CSV, always
-    OutputSerialization outputSerialization
-        = new OutputSerialization();
-    CSVOutput csvOut = new CSVOutput();
-    csvOut.setQuoteCharacter(quoteCharacter);
-    csvOut.setQuoteFields(
+    CSVOutput.Builder csvOutputBuilder = CSVOutput.builder();
+    csvOutputBuilder.quoteCharacter(quoteCharacter);
+    csvOutputBuilder.quoteFields(
         QuoteFields.fromValue(quoteFields));
-    csvOut.setFieldDelimiter(fieldDelimiter);
-    csvOut.setRecordDelimiter(recordDelimiter);
+    csvOutputBuilder.fieldDelimiter(fieldDelimiter);
+    csvOutputBuilder.recordDelimiter(recordDelimiter);
     if (!quoteEscapeCharacter.isEmpty()) {
-      csvOut.setQuoteEscapeCharacter(quoteEscapeCharacter);
+      csvOutputBuilder.quoteEscapeCharacter(quoteEscapeCharacter);
     }
 
-    outputSerialization.setCsv(csvOut);
+    // output is CSV, always
+    OutputSerialization outputSerialization
+        = OutputSerialization.builder().csv(csvOutputBuilder.build()).build();
+
     return outputSerialization;
   }
 
@@ -359,18 +357,18 @@ public class SelectBinding {
   public static String toString(final SelectObjectContentRequest request) {
     StringBuilder sb = new StringBuilder();
     sb.append("SelectObjectContentRequest{")
-        .append("bucket name=").append(request.getBucketName())
-        .append("; key=").append(request.getKey())
-        .append("; expressionType=").append(request.getExpressionType())
-        .append("; expression=").append(request.getExpression());
-    InputSerialization input = request.getInputSerialization();
+        .append("bucket name=").append(request.bucket())
+        .append("; key=").append(request.key())
+        .append("; expressionType=").append(request.expressionType())
+        .append("; expression=").append(request.expression());
+    InputSerialization input = request.inputSerialization();
     if (input != null) {
       sb.append("; Input")
           .append(input.toString());
     } else {
       sb.append("; Input Serialization: none");
     }
-    OutputSerialization out = request.getOutputSerialization();
+    OutputSerialization out = request.outputSerialization();
     if (out != null) {
       sb.append("; Output")
           .append(out.toString());

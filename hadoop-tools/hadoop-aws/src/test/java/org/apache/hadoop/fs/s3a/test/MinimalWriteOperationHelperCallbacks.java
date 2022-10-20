@@ -18,13 +18,16 @@
 
 package org.apache.hadoop.fs.s3a.test;
 
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import com.amazonaws.services.s3.model.SelectObjectContentResult;
+import java.util.concurrent.CompletableFuture;
 
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentResponse;
 
+import org.apache.hadoop.fs.s3a.S3AFileSystem;
 import org.apache.hadoop.fs.s3a.WriteOperationHelper;
+import org.apache.hadoop.fs.s3a.select.SelectHandler;
 
 /**
  * Stub implementation of writeOperationHelper callbacks.
@@ -33,7 +36,7 @@ public class MinimalWriteOperationHelperCallbacks
     implements WriteOperationHelper.WriteOperationHelperCallbacks {
 
   @Override
-  public SelectObjectContentResult selectObjectContent(SelectObjectContentRequest request) {
+  public CompletableFuture<Void> selectObjectContent(SelectObjectContentRequest request, SelectHandler th) {
     return null;
   }
 

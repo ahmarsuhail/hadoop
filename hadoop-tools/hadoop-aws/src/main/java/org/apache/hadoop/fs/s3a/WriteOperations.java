@@ -27,8 +27,6 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import com.amazonaws.services.s3.model.SelectObjectContentResult;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
 
@@ -37,11 +35,14 @@ import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.MultipartUpload;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentResponse;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.s3a.impl.PutObjectOptions;
+import org.apache.hadoop.fs.s3a.select.SelectHandler;
 import org.apache.hadoop.fs.store.audit.AuditSpanSource;
 import org.apache.hadoop.util.functional.CallableRaisingIOE;
 
@@ -302,7 +303,7 @@ public interface WriteOperations extends AuditSpanSource, Closeable {
    * @param path pre-qualified path for query
    * @return the request
    */
-  SelectObjectContentRequest newSelectRequest(Path path);
+  SelectObjectContentRequest.Builder newSelectRequest(Path path);
 
   /**
    * Execute an S3 Select operation.
@@ -315,10 +316,11 @@ public interface WriteOperations extends AuditSpanSource, Closeable {
    * @throws IOException failure
    */
   @Retries.RetryTranslated
-  SelectObjectContentResult select(
+  void select(
       Path source,
       SelectObjectContentRequest request,
-      String action)
+      String action,
+      SelectHandler selectHandler)
       throws IOException;
 
   /**
