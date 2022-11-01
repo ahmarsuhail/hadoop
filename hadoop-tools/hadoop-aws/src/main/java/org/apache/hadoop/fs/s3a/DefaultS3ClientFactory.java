@@ -194,6 +194,7 @@ public class DefaultS3ClientFactory extends Configured
 
     Configuration conf = getConf();
     bucket = uri.getHost();
+
     ApacheHttpClient.Builder httpClientBuilder = AWSClientConfig
         .createHttpClientBuilder(conf)
         .proxyConfiguration(AWSClientConfig.createProxyConfiguration(conf, bucket));
