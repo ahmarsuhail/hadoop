@@ -26,16 +26,17 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
-import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
-import com.amazonaws.services.securitytoken.model.AWSSecurityTokenServiceException;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.apache.hadoop.util.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.sts.StsClientBuilder;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -50,6 +51,7 @@ import org.apache.hadoop.fs.s3a.S3ARetryPolicy;
 import org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider;
 import org.apache.hadoop.security.UserGroupInformation;
 
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 import static org.apache.hadoop.fs.s3a.Constants.*;
 import static org.apache.hadoop.fs.s3a.S3AUtils.buildAWSProviderList;
 
@@ -61,13 +63,10 @@ import static org.apache.hadoop.fs.s3a.S3AUtils.buildAWSProviderList;
  *
  * Classname is used in configuration files; do not move.
  *
- * @deprecated This class will be replaced by one that implements AWS SDK V2's AwsCredentialProvider
- * as part of upgrading S3A to SDK V2. See HADOOP-18073.
  */
 @InterfaceAudience.Public
 @InterfaceStability.Evolving
-@Deprecated
-public class AssumedRoleCredentialProvider implements AWSCredentialsProvider,
+public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
     Closeable {
 
   private static final Logger LOG =
@@ -78,7 +77,7 @@ public class AssumedRoleCredentialProvider implements AWSCredentialsProvider,
   public static final String E_NO_ROLE = "Unset property "
       + ASSUMED_ROLE_ARN;
 
-  private final STSAssumeRoleSessionCredentialsProvider stsProvider;
+  private final StsAssumeRoleCredentialsProvider stsProvider;
 
   private final String sessionName;
 
@@ -125,29 +124,30 @@ public class AssumedRoleCredentialProvider implements AWSCredentialsProvider,
     String policy = conf.getTrimmed(ASSUMED_ROLE_POLICY, "");
 
     LOG.debug("{}", this);
-    STSAssumeRoleSessionCredentialsProvider.Builder builder
-        = new STSAssumeRoleSessionCredentialsProvider.Builder(arn, sessionName);
-    builder.withRoleSessionDurationSeconds((int) duration);
+
+    AssumeRoleRequest.Builder requestBuilder =
+        AssumeRoleRequest.builder().roleArn(arn).roleSessionName(sessionName)
+            .durationSeconds((int) duration);
+
     if (StringUtils.isNotEmpty(policy)) {
       LOG.debug("Scope down policy {}", policy);
-      builder.withScopeDownPolicy(policy);
+      // TODO: Check this!
+     // requestBuilder.withScopeDownPolicy(policy);
     }
+
     String endpoint = conf.getTrimmed(ASSUMED_ROLE_STS_ENDPOINT, "");
     String region = conf.getTrimmed(ASSUMED_ROLE_STS_ENDPOINT_REGION,
         ASSUMED_ROLE_STS_ENDPOINT_REGION_DEFAULT);
-    AWSSecurityTokenServiceClientBuilder stsbuilder =
+    StsClientBuilder stsbuilder =
         STSClientFactory.builder(
           conf,
           fsUri != null ?  fsUri.getHost() : "",
           credentialsToSTS,
           endpoint,
           region);
-    // the STS client is not tracked for a shutdown in close(), because it
-    // (currently) throws an UnsupportedOperationException in shutdown().
-    builder.withStsClient(stsbuilder.build());
 
     //now build the provider
-    stsProvider = builder.build();
+    stsProvider = StsAssumeRoleCredentialsProvider.builder().stsClient(stsbuilder.build()).build();
 
     // to handle STS throttling by the AWS account, we
     // need to retry
@@ -155,7 +155,7 @@ public class AssumedRoleCredentialProvider implements AWSCredentialsProvider,
 
     // and force in a fail-fast check just to keep the stack traces less
     // convoluted
-    getCredentials();
+    resolveCredentials();
   }
 
   /**
@@ -165,11 +165,12 @@ public class AssumedRoleCredentialProvider implements AWSCredentialsProvider,
    */
   @Override
   @Retries.RetryRaw
-  public AWSCredentials getCredentials() {
+  public AwsCredentials resolveCredentials() {
     try {
       return invoker.retryUntranslated("getCredentials",
           true,
-          stsProvider::getCredentials);
+          stsProvider::resolveCredentials);
+      // TODO: Check this!!
     } catch (IOException e) {
       // this is in the signature of retryUntranslated;
       // its hard to see how this could be raised, but for
@@ -178,16 +179,11 @@ public class AssumedRoleCredentialProvider implements AWSCredentialsProvider,
       throw new CredentialInitializationException(
           "getCredentials failed: " + e,
           e);
-    } catch (AWSSecurityTokenServiceException e) {
+    } catch (SdkClientException e) {
       LOG.error("Failed to get credentials for role {}",
           arn, e);
       throw e;
     }
-  }
-
-  @Override
-  public void refresh() {
-    stsProvider.refresh();
   }
 
   /**

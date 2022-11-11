@@ -33,6 +33,9 @@ import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
+import software.amazon.awssdk.services.sts.StsClient;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.AWSCredentialProviderList;
@@ -292,23 +295,24 @@ public class SessionTokenBinding extends AbstractDelegationTokenBinding {
     // chain.
     // As no codepath (session propagation, STS creation) will work,
     // throw this.
-    final AWSCredentials parentCredentials = once("get credentials",
+    // TODO: Check if changing this to .resolveCredentials() is ok.
+    //  Not clear on what is ok to break.
+    final AwsCredentials parentCredentials = once("get credentials",
         "",
-        () -> parentAuthChain.getCredentials());
+        () -> parentAuthChain.resolveCredentials());
     hasSessionCreds = parentCredentials instanceof AWSSessionCredentials;
 
     if (!hasSessionCreds) {
       LOG.debug("Creating STS client for {}", getDescription());
 
       invoker = new Invoker(new S3ARetryPolicy(conf), LOG_EVENT);
-      ClientConfiguration awsConf =
-          S3AUtils.createAwsConf(conf, uri.getHost(),
-              Constants.AWS_SERVICE_IDENTIFIER_STS);
-      AWSSecurityTokenService tokenService =
+
+      StsClient tokenService =
           STSClientFactory.builder(parentAuthChain,
-              awsConf,
+              conf,
               endpoint,
-              region)
+              region,
+              uri.getHost())
               .build();
       stsClient = Optional.of(
           STSClientFactory.createClientConnection(tokenService, invoker));
@@ -374,11 +378,11 @@ public class SessionTokenBinding extends AbstractDelegationTokenBinding {
             + " -duration unknown", getCanonicalUri());
       }
       origin += " " + CREDENTIALS_CONVERTED_TO_DELEGATION_TOKEN;
-      final AWSCredentials awsCredentials
-          = parentAuthChain.getCredentials();
-      if (awsCredentials instanceof AWSSessionCredentials) {
+      final AwsCredentials awsCredentials
+          = parentAuthChain.resolveCredentials();
+      if (awsCredentials instanceof AwsSessionCredentials) {
         marshalledCredentials = fromAWSCredentials(
-            (AWSSessionCredentials) awsCredentials);
+            (AwsSessionCredentials) awsCredentials);
       } else {
         throw new DelegationTokenIOException(
             "AWS Authentication chain is no longer supplying session secrets");
