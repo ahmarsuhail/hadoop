@@ -38,7 +38,6 @@ import org.apache.hadoop.util.functional.RemoteIterators;
 import org.apache.hadoop.fs.s3a.auth.delegation.EncryptionSecrets;
 import org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider;
 import org.apache.hadoop.fs.s3a.impl.NetworkBinding;
-import org.apache.hadoop.fs.s3a.impl.V2Migration;
 import org.apache.hadoop.fs.s3native.S3xLoginHelper;
 import org.apache.hadoop.net.ConnectTimeoutException;
 import org.apache.hadoop.security.ProviderUtils;
@@ -54,7 +53,6 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.exception.AbortedException;
 import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.core.retry.RetryUtils;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -845,7 +843,8 @@ public final class S3AUtils {
               + "getInstance that accepts no arguments.",
           className, AWS_CREDENTIALS_PROVIDER));
     } catch (InvocationTargetException e) {
-      // TODO: Can probably be moved to a common method
+      // TODO: Can probably be moved to a common method, but before doing this, check if we still
+      //  want to extend V2 providers the same way v1 providers are.
       Throwable targetException = e.getTargetException();
       if (targetException == null) {
         targetException =  e;

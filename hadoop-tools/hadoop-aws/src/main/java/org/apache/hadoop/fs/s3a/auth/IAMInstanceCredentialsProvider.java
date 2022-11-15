@@ -28,6 +28,7 @@ import com.amazonaws.auth.EC2ContainerCredentialsProviderWrapper;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.InstanceProfileCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -63,15 +64,29 @@ public class IAMInstanceCredentialsProvider
    * @return the credentials
    * @throws NoAwsCredentialsException on auth failure to indicate non-recoverable.
    */
-  // TODO: THIS NEEDS TO BE TESTED, and also use InstanceCred provider
   @Override
   public AwsCredentials resolveCredentials() {
     try {
-      return containerCredentialsProvider.resolveCredentials();
+      return getCredentials();
     } catch (SdkClientException e) {
       throw new NoAwsCredentialsException("IAMInstanceCredentialsProvider",
           e.getMessage(),
           e);
+    }
+  }
+
+  /**
+   * First try {@link ContainerCredentialsProvider}, which will throw an exception if credentials
+   * cannot be retrieved from the container. Then resolve credentials
+   * using {@link InstanceProfileCredentialsProvider}.
+   *
+   * @return credentials
+   */
+  private AwsCredentials getCredentials() {
+    try {
+      return containerCredentialsProvider.resolveCredentials();
+    } catch (SdkClientException e) {
+      return InstanceProfileCredentialsProvider.create().resolveCredentials();
     }
   }
 

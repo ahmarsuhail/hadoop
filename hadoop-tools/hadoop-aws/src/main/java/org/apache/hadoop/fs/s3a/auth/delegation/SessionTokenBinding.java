@@ -295,8 +295,6 @@ public class SessionTokenBinding extends AbstractDelegationTokenBinding {
     // chain.
     // As no codepath (session propagation, STS creation) will work,
     // throw this.
-    // TODO: Check if changing this to .resolveCredentials() is ok.
-    //  Not clear on what is ok to break.
     final AwsCredentials parentCredentials = once("get credentials",
         "",
         () -> parentAuthChain.resolveCredentials());

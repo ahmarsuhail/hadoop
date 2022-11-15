@@ -27,10 +27,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.apache.hadoop.fs.s3a.adapter.V1V2AwsCredentialProviderAdapter;
 import org.apache.hadoop.util.Preconditions;
+
+import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +48,7 @@ import org.apache.hadoop.io.IOUtils;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.core.exception.SdkException;
 
 /**
@@ -121,7 +126,7 @@ public final class AWSCredentialProviderList implements AwsCredentialsProvider,
   }
 
   /**
-   * Create with an initial list of providers.
+   * Create with an initial list of SDK V2 credential providers.
    * @param name name for error messages, may be ""
    * @param providerArgs provider list.
    */
@@ -152,7 +157,7 @@ public final class AWSCredentialProviderList implements AwsCredentialsProvider,
   }
 
   /**
-   * Add a new provider.
+   * Add a new SDK V2 provider.
    * @param provider provider
    */
   public void add(AwsCredentialsProvider provider) {
@@ -166,6 +171,22 @@ public final class AWSCredentialProviderList implements AwsCredentialsProvider,
    */
   public void addAll(AWSCredentialProviderList other) {
     providers.addAll(other.providers);
+  }
+
+  /**
+   * This method will get credentials using SDK V2's resolveCredentials and then convert it into
+   * V1 credentials. This required by delegation token binding classes.
+   * @return SDK V1 credentials
+   */
+  public AWSCredentials getCredentials() {
+    AwsCredentials credentials = resolveCredentials();
+    if (credentials instanceof AwsSessionCredentials) {
+      return new BasicSessionCredentials(credentials.accessKeyId(),
+          credentials.secretAccessKey(),
+          ((AwsSessionCredentials) credentials).sessionToken());
+    } else {
+      return new BasicAWSCredentials(credentials.accessKeyId(), credentials.secretAccessKey());
+    }
   }
 
   /**
@@ -191,9 +212,9 @@ public final class AWSCredentialProviderList implements AwsCredentialsProvider,
         AwsCredentials credentials = provider.resolveCredentials();
         Preconditions.checkNotNull(credentials,
             "Null credentials returned by %s", provider);
-        if ((credentials.accessKeyId() != null &&
-            credentials.secretAccessKey() != null)
-            || (provider instanceof AnonymousCredentialsProvider)) {
+        if ((credentials.accessKeyId() != null && credentials.secretAccessKey() != null) || (
+            provider instanceof AnonymousCredentialsProvider
+                || provider instanceof AnonymousAWSCredentialsProvider)) {
           lastProvider = provider;
           LOG.debug("Using credentials from {}", provider);
           return credentials;

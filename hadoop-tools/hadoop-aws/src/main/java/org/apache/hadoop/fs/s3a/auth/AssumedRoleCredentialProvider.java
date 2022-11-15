@@ -34,6 +34,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
@@ -51,7 +52,6 @@ import org.apache.hadoop.fs.s3a.S3ARetryPolicy;
 import org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 import static org.apache.hadoop.fs.s3a.Constants.*;
 import static org.apache.hadoop.fs.s3a.S3AUtils.buildAWSProviderList;
 
@@ -89,9 +89,11 @@ public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
 
   private final Invoker invoker;
 
+  private final StsClient stsClient;
+
   /**
    * Instantiate.
-   * This calls {@link #getCredentials()} to fail fast on the inner
+   * This calls {@link #resolveCredentials()} to fail fast on the inner
    * role credential retrieval.
    * @param fsUri possibly null URI of the filesystem.
    * @param conf configuration
@@ -131,23 +133,25 @@ public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
 
     if (StringUtils.isNotEmpty(policy)) {
       LOG.debug("Scope down policy {}", policy);
-      // TODO: Check this!
+      // TODO: Don't see an equivalent in V2.
      // requestBuilder.withScopeDownPolicy(policy);
     }
 
     String endpoint = conf.getTrimmed(ASSUMED_ROLE_STS_ENDPOINT, "");
     String region = conf.getTrimmed(ASSUMED_ROLE_STS_ENDPOINT_REGION,
         ASSUMED_ROLE_STS_ENDPOINT_REGION_DEFAULT);
-    StsClientBuilder stsbuilder =
+    stsClient =
         STSClientFactory.builder(
           conf,
           fsUri != null ?  fsUri.getHost() : "",
           credentialsToSTS,
           endpoint,
-          region);
+          region).build();
 
     //now build the provider
-    stsProvider = StsAssumeRoleCredentialsProvider.builder().stsClient(stsbuilder.build()).build();
+    stsProvider = StsAssumeRoleCredentialsProvider.builder()
+        .refreshRequest(requestBuilder.build())
+        .stsClient(stsClient).build();
 
     // to handle STS throttling by the AWS account, we
     // need to retry
@@ -170,7 +174,6 @@ public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
       return invoker.retryUntranslated("getCredentials",
           true,
           stsProvider::resolveCredentials);
-      // TODO: Check this!!
     } catch (IOException e) {
       // this is in the signature of retryUntranslated;
       // its hard to see how this could be raised, but for
@@ -191,7 +194,7 @@ public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
    */
   @Override
   public void close() {
-    S3AUtils.closeAutocloseables(LOG, stsProvider, credentialsToSTS);
+    S3AUtils.closeAutocloseables(LOG, stsProvider, credentialsToSTS, stsClient);
   }
 
   @Override

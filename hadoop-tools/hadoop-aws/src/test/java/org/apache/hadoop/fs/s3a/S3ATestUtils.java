@@ -674,7 +674,8 @@ public final class S3ATestUtils {
           conf.getTrimmed(ASSUMED_ROLE_STS_ENDPOINT_REGION,
               ASSUMED_ROLE_STS_ENDPOINT_REGION_DEFAULT),
           duration,
-          new Invoker(new S3ARetryPolicy(conf), Invoker.LOG_EVENT));
+          new Invoker(new S3ARetryPolicy(conf), Invoker.LOG_EVENT),
+           bucket );
     sc.validate("requested session credentials: ",
         MarshalledCredentials.CredentialTypeRequired.SessionOnly);
     return sc;

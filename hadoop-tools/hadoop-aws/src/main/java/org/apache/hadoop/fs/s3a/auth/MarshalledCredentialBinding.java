@@ -182,7 +182,7 @@ public final class MarshalledCredentialBinding {
   /**
    * Request a set of credentials from an STS endpoint.
    * @param parentCredentials the parent credentials needed to talk to STS
-   * @param awsConf AWS client configuration
+   * @param configuration AWS client configuration
    * @param stsEndpoint an endpoint, use "" for none
    * @param stsRegion region; use if the endpoint isn't the AWS default.
    * @param duration duration of the credentials in seconds. Minimum value: 900.
@@ -197,13 +197,14 @@ public final class MarshalledCredentialBinding {
       final String stsEndpoint,
       final String stsRegion,
       final int duration,
-      final Invoker invoker) throws IOException {
+      final Invoker invoker,
+      final String bucket) throws IOException {
     try {
       final StsClient tokenService =
           STSClientFactory.builder(parentCredentials,
               configuration,
               stsEndpoint.isEmpty() ? null : stsEndpoint,
-              stsRegion, "b")
+              stsRegion, bucket)
               .build();
       try (STSClientFactory.STSClient stsClient = STSClientFactory.createClientConnection(
           tokenService, invoker)) {
