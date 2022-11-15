@@ -156,7 +156,7 @@ public class STSClientFactory {
           "STS endpoint is set to %s but no signing region was provided",
           stsEndpoint);
       LOG.debug("STS Endpoint={}; region='{}'", stsEndpoint, stsRegion);
-      stsClientBuilder.endpointOverride(getSTSEndpoint(stsEndpoint, conf))
+      stsClientBuilder.endpointOverride(getSTSEndpoint(stsEndpoint))
           .region(Region.of(stsRegion));
     } else {
       Preconditions.checkArgument(isEmpty(stsRegion),
@@ -170,19 +170,9 @@ public class STSClientFactory {
    * Given a endpoint string, create the endpoint URI.
    *
    * @param endpoint possibly null endpoint.
-   * @param conf config to build the URI from.
    * @return an endpoint uri
    */
-  private static URI getSTSEndpoint(String endpoint, final Configuration conf) {
-
-    boolean secureConnections = conf.getBoolean(SECURE_CONNECTIONS, DEFAULT_SECURE_CONNECTIONS);
-
-    String protocol = secureConnections ? "https" : "http";
-
-    if (!endpoint.contains("://")) {
-      endpoint = String.format("%s://%s", protocol, endpoint);
-    }
-
+  private static URI getSTSEndpoint(String endpoint) {
     try {
       return new URI(endpoint);
     } catch (URISyntaxException e) {
