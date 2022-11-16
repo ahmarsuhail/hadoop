@@ -26,10 +26,6 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSSessionCredentials;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,11 +35,9 @@ import software.amazon.awssdk.services.sts.StsClient;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.AWSCredentialProviderList;
-import org.apache.hadoop.fs.s3a.Constants;
 import org.apache.hadoop.fs.s3a.Invoker;
 import org.apache.hadoop.fs.s3a.Retries;
 import org.apache.hadoop.fs.s3a.S3ARetryPolicy;
-import org.apache.hadoop.fs.s3a.S3AUtils;
 import org.apache.hadoop.fs.s3a.auth.MarshalledCredentialProvider;
 import org.apache.hadoop.fs.s3a.auth.MarshalledCredentials;
 import org.apache.hadoop.fs.s3a.auth.RoleModel;
@@ -298,7 +292,7 @@ public class SessionTokenBinding extends AbstractDelegationTokenBinding {
     final AwsCredentials parentCredentials = once("get credentials",
         "",
         () -> parentAuthChain.resolveCredentials());
-    hasSessionCreds = parentCredentials instanceof AWSSessionCredentials;
+    hasSessionCreds = parentCredentials instanceof AwsSessionCredentials;
 
     if (!hasSessionCreds) {
       LOG.debug("Creating STS client for {}", getDescription());
