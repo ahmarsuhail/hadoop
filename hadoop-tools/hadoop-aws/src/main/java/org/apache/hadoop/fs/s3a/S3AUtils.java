@@ -782,7 +782,7 @@ public final class S3AUtils {
    *    org.apache.hadoop.conf.Configuration</li>
    * <li>a public static method named getInstance that accepts no
    *    arguments and returns an instance of
-   *    com.amazonaws.auth.AWSCredentialsProvider, or</li>
+   *    software.amazon.awssdk.auth.credentials.AwsCredentialsProvider, or</li>
    * <li>a public default constructor.</li>
    * </ol>
    *

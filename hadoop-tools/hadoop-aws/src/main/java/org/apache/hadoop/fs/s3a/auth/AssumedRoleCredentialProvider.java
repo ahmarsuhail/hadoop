@@ -35,9 +35,9 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
+import software.amazon.awssdk.services.sts.model.StsException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -99,7 +99,7 @@ public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
    * @param conf configuration
    * @throws IOException on IO problems and some parameter checking
    * @throws IllegalArgumentException invalid parameters
-   * @throws AWSSecurityTokenServiceException problems getting credentials
+   * @throws StsException problems getting credentials
    */
   public AssumedRoleCredentialProvider(@Nullable URI fsUri, Configuration conf)
       throws IOException {
@@ -133,8 +133,7 @@ public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
 
     if (StringUtils.isNotEmpty(policy)) {
       LOG.debug("Scope down policy {}", policy);
-      // TODO: Don't see an equivalent in V2.
-     // requestBuilder.withScopeDownPolicy(policy);
+      requestBuilder.policy(policy);
     }
 
     String endpoint = conf.getTrimmed(ASSUMED_ROLE_STS_ENDPOINT, "");
@@ -165,7 +164,7 @@ public class AssumedRoleCredentialProvider implements AwsCredentialsProvider,
   /**
    * Get credentials.
    * @return the credentials
-   * @throws AWSSecurityTokenServiceException if none could be obtained.
+   * @throws StsException if none could be obtained.
    */
   @Override
   @Retries.RetryRaw
