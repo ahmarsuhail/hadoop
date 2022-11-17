@@ -136,11 +136,11 @@ public class STSClientFactory {
 
     final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
 
-    final ProxyConfiguration.Builder proxyConfigBuilder =
-        AWSClientConfig.createProxyConfigurationBuilder(conf, bucket);
+    final ProxyConfiguration proxyConfig =
+        AWSClientConfig.createProxyConfiguration(conf, bucket);
 
     clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());
-    httpClientBuilder.proxyConfiguration(proxyConfigBuilder.build());
+    httpClientBuilder.proxyConfiguration(proxyConfig);
 
     stsClientBuilder
         .httpClientBuilder(httpClientBuilder)
