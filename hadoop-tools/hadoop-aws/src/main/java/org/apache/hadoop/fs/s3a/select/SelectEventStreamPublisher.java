@@ -33,7 +33,6 @@ import software.amazon.awssdk.services.s3.model.RecordsEvent;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentEventStream;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentResponse;
 import software.amazon.awssdk.utils.ToString;
-import software.amazon.awssdk.utils.Validate;
 
 /**
  * Async publisher of {@link SelectObjectContentEventStream}s returned

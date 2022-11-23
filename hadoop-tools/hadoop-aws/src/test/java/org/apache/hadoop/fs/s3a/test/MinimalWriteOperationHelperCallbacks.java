@@ -23,10 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
-import software.amazon.awssdk.services.s3.model.SelectObjectContentResponse;
 import software.amazon.awssdk.services.s3.model.SelectObjectContentResponseHandler;
 
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
 import org.apache.hadoop.fs.s3a.WriteOperationHelper;
 
 /**

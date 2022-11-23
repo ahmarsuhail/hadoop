@@ -22,14 +22,12 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 import org.apache.hadoop.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.core.SdkRequest;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;

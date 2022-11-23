@@ -21,7 +21,6 @@ package org.apache.hadoop.fs.s3a.audit;
 import software.amazon.awssdk.core.SdkRequest;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 
-import org.apache.hadoop.fs.s3a.Retries;
 
 /**
  * Callbacks for audit spans. This is implemented

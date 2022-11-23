@@ -21,7 +21,6 @@ package org.apache.hadoop.fs.s3a.audit;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.Test;
 

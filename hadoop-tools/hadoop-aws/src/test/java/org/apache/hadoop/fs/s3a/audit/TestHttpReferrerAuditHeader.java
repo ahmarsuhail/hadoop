@@ -36,7 +36,6 @@ import org.apache.hadoop.fs.store.audit.HttpReferrerAuditHeader;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 
 import static org.apache.hadoop.fs.s3a.audit.AuditTestSupport.loggingAuditConfig;
 import static org.apache.hadoop.fs.s3a.audit.S3AAuditConstants.REFERRER_HEADER_FILTER;

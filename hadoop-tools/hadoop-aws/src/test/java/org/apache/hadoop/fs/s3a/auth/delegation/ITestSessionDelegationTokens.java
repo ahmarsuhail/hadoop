@@ -22,8 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSSessionCredentials;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.slf4j.Logger;

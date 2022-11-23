@@ -31,7 +31,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import com.amazonaws.services.s3.AmazonS3;
 
 import org.apache.hadoop.util.Sets;
 import org.assertj.core.api.Assertions;

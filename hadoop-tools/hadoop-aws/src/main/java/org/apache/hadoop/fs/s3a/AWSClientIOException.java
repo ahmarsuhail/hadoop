@@ -21,7 +21,6 @@ package org.apache.hadoop.fs.s3a;
 import org.apache.hadoop.util.Preconditions;
 
 import java.io.IOException;
-import java.util.Map;
 
 import software.amazon.awssdk.core.exception.SdkException;
 

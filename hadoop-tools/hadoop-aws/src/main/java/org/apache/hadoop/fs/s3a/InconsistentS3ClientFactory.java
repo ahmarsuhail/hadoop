@@ -18,12 +18,7 @@
 
 package org.apache.hadoop.fs.s3a;
 
-import java.io.IOException;
-import java.net.URI;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;

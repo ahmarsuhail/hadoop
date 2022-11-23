@@ -21,7 +21,6 @@ package org.apache.hadoop.fs.s3a;
 import static org.junit.Assert.*;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.FileNotFoundException;
@@ -37,7 +36,6 @@ import org.apache.hadoop.fs.contract.ContractTestUtils;
 import org.junit.Test;
 import org.mockito.ArgumentMatcher;
 
-import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;

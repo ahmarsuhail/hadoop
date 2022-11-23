@@ -18,8 +18,6 @@
 
 package org.apache.hadoop.fs.s3a.impl;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 

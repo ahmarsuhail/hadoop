@@ -20,7 +20,6 @@ package org.apache.hadoop.fs.s3a.api;
 
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Optional;
 
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.s3a.S3AEncryptionMethods;

@@ -24,7 +24,6 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.http.Abortable;
 import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
