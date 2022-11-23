@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.monitoring.MonitoringListener;
 import com.amazonaws.services.s3.AmazonS3;
 
@@ -53,25 +52,14 @@ import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_ENDPOINT;
  */
 @InterfaceAudience.LimitedPrivate("HBoss")
 @InterfaceStability.Evolving
-@Deprecated
 public interface S3ClientFactory {
 
-  /**
-   * Creates a new {@link AmazonS3} client.
-   *
-   * @param uri S3A file system URI
-   * @param parameters parameter object
-   * @return S3 client
-   * @throws IOException IO problem
-   */
-  AmazonS3 createS3Client(URI uri,
-      S3ClientCreationParameters parameters) throws IOException;
 
   /**
    * Creates a new {@link S3Client}.
    * The client returned supports synchronous operations. For
    * asynchronous operations, use
-   * {@link #createS3AsyncClientV2(URI, S3ClientCreationParameters)}.
+   * {@link #createS3AsyncClient(URI, S3ClientCreationParameters)}.
    *
    * @param uri S3A file system URI
    * @param parameters parameter object

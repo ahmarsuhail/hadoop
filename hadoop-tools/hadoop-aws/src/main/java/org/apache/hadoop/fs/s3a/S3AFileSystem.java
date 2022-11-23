@@ -916,7 +916,6 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
    * @param dtEnabled are delegation tokens enabled?
    * @throws IOException failure.
    */
-  @SuppressWarnings("deprecation")
   private void bindAWSClient(URI name, boolean dtEnabled) throws IOException {
     Configuration conf = getConf();
     credentials = null;

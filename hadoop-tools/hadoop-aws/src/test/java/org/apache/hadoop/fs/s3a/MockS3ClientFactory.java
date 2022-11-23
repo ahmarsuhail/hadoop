@@ -33,10 +33,8 @@ import software.amazon.awssdk.services.s3.S3Client;
  * An {@link S3ClientFactory} that returns Mockito mocks of the {@link AmazonS3}
  * interface suitable for unit testing.
  */
-@SuppressWarnings("deprecation")
 public class MockS3ClientFactory implements S3ClientFactory {
 
-  @Override
   public AmazonS3 createS3Client(URI uri,
       final S3ClientCreationParameters parameters) {
     AmazonS3 s3 = mock(AmazonS3.class);

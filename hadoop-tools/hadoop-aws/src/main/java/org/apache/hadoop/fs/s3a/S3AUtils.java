@@ -566,7 +566,6 @@ public final class S3AUtils {
   /**
    * The standard AWS provider list for AWS connections.
    */
-  @SuppressWarnings("deprecation")
   public static final List<Class<?>>
       STANDARD_AWS_PROVIDERS = Collections.unmodifiableList(
       Arrays.asList(

@@ -25,7 +25,6 @@ import java.util.List;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.SdkClientException;
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.s3.AmazonS3;
@@ -44,14 +43,12 @@ import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.util.AwsHostNameUtils;
 import com.amazonaws.util.RuntimeHttpUtils;
 
-import org.apache.hadoop.fs.s3a.adapter.V1V2AwsCredentialProviderAdapter;
 import org.apache.hadoop.util.Preconditions;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.core.SdkClient;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
@@ -87,7 +84,6 @@ import static org.apache.hadoop.fs.s3a.Constants.S3_ENCRYPTION_KEY;
 import static org.apache.hadoop.fs.s3a.Constants.SECURE_CONNECTIONS;
 import static org.apache.hadoop.fs.s3a.S3AUtils.getEncryptionAlgorithm;
 import static org.apache.hadoop.fs.s3a.S3AUtils.getS3EncryptionKey;
-import static org.apache.hadoop.fs.s3a.S3AUtils.translateException;
 import static org.apache.hadoop.fs.s3a.impl.InternalConstants.SC_301_MOVED_PERMANENTLY;
 
 /**
@@ -97,7 +93,6 @@ import static org.apache.hadoop.fs.s3a.impl.InternalConstants.SC_301_MOVED_PERMA
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-@SuppressWarnings("deprecation")
 public class DefaultS3ClientFactory extends Configured
     implements S3ClientFactory {
 
@@ -134,7 +129,7 @@ public class DefaultS3ClientFactory extends Configured
    * Create the client by preparing the AwsConf configuration
    * and then invoking {@code buildAmazonS3Client()}.
    */
-  @Override
+  // TODO: Remove this and all code that configures the V1 S3 client.
   public AmazonS3 createS3Client(
       final URI uri,
       final S3ClientCreationParameters parameters) throws IOException {

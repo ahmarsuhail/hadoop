@@ -66,7 +66,6 @@ public abstract class AbstractS3AMockTest {
     s3V2 = fs.getAmazonS3V2ClientForTesting("mocking");
   }
 
-  @SuppressWarnings("deprecation")
   public Configuration createConfiguration() {
     Configuration conf = new Configuration();
     conf.setClass(S3_CLIENT_FACTORY_IMPL, MockS3ClientFactory.class,

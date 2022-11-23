@@ -98,7 +98,6 @@ public class TestS3AAWSCredentialsProvider {
   }
 
   @Test
-  @SuppressWarnings("deprecation")
   public void testInstantiationChain() throws Throwable {
     Configuration conf = new Configuration(false);
     conf.set(AWS_CREDENTIALS_PROVIDER,
@@ -118,7 +117,6 @@ public class TestS3AAWSCredentialsProvider {
   }
 
   @Test
-  @SuppressWarnings("deprecation")
   public void testDefaultChain() throws Exception {
     URI uri1 = new URI("s3a://bucket1"), uri2 = new URI("s3a://bucket2");
     Configuration conf = new Configuration(false);
@@ -143,7 +141,6 @@ public class TestS3AAWSCredentialsProvider {
   }
 
   @Test
-  @SuppressWarnings("deprecation")
   public void testConfiguredChain() throws Exception {
     URI uri1 = new URI("s3a://bucket1"), uri2 = new URI("s3a://bucket2");
     List<Class<?>> expectedClasses =
@@ -162,7 +159,6 @@ public class TestS3AAWSCredentialsProvider {
   }
 
   @Test
-  @SuppressWarnings("deprecation")
   public void testConfiguredChainUsesSharedInstanceProfile() throws Exception {
     URI uri1 = new URI("s3a://bucket1"), uri2 = new URI("s3a://bucket2");
     Configuration conf = new Configuration(false);
@@ -372,7 +368,6 @@ public class TestS3AAWSCredentialsProvider {
    * @see S3ATestUtils#authenticationContains(Configuration, String).
    */
   @Test
-  @SuppressWarnings("deprecation")
   public void testAuthenticationContainsProbes() {
     Configuration conf = new Configuration(false);
     assertFalse("found AssumedRoleCredentialProvider",
