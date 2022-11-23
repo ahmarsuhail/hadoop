@@ -35,26 +35,9 @@ import software.amazon.awssdk.services.s3.S3Client;
  */
 public class MockS3ClientFactory implements S3ClientFactory {
 
-  // TODO: This will be removed when we remove this method for the client factory.
-  @Override
-  public AmazonS3 createS3Client(URI uri,
-      final S3ClientCreationParameters parameters) {
-    AmazonS3 s3 = mock(AmazonS3.class);
-    String bucket = uri.getHost();
-    when(s3.doesBucketExist(bucket)).thenReturn(true);
-    when(s3.doesBucketExistV2(bucket)).thenReturn(true);
-    // this listing is used in startup if purging is enabled, so
-    // return a stub value
-    MultipartUploadListing noUploads = new MultipartUploadListing();
-    noUploads.setMultipartUploads(new ArrayList<>(0));
-    when(s3.listMultipartUploads(any())).thenReturn(noUploads);
-    when(s3.getBucketLocation(anyString())).thenReturn(Region.US_West.toString());
-    return s3;
-  }
-
   //TODO: This is incomplete, add in mocks as we update operations
   @Override
-  public S3Client createS3ClientV2(URI uri, final S3ClientCreationParameters parameters) {
+  public S3Client createS3Client(URI uri, final S3ClientCreationParameters parameters) {
     S3Client s3 = mock(S3Client.class);
     return s3;
   }

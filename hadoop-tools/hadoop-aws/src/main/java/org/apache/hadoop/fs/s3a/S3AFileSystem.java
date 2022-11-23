@@ -975,7 +975,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         .withExecutionInterceptors(auditManager.createExecutionInterceptors());
 
     s3Client = ReflectionUtils.newInstance(s3ClientFactoryClass, conf)
-        .createS3ClientV2(getUri(),
+        .createS3Client(getUri(),
             parameters);
 
     s3AsyncClient = ReflectionUtils.newInstance(s3ClientFactoryClass, conf)

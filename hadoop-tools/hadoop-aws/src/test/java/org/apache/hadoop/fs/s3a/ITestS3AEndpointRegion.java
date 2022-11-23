@@ -21,6 +21,7 @@ package org.apache.hadoop.fs.s3a;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.client.builder.AwsClientBuilder;
@@ -28,6 +29,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.util.AwsHostNameUtils;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.statistics.impl.EmptyS3AStatisticsContext;
@@ -120,7 +122,7 @@ public class ITestS3AEndpointRegion extends AbstractS3ATestBase {
     describe("Create a client with no region and the default endpoint");
     Configuration conf = getConfiguration();
     conf.unset(AWS_REGION);
-    createS3Client(conf, DEFAULT_ENDPOINT, AWS_S3_CENTRAL_REGION);
+    createS3Client(conf, DEFAULT_ENDPOINT);
   }
 
   /**
@@ -145,13 +147,13 @@ public class ITestS3AEndpointRegion extends AbstractS3ATestBase {
 
   /**
    * Create an S3 client bonded to an invalid region;
-   * verify that calling {@code getRegion()} triggers
+   * verify that calling {@code listBuckets()} triggers
    * a failure.
    * @param conf configuration to use in the building.
    */
   private void createMarsNorth2Client(Configuration conf) throws Exception {
-    AmazonS3 client = createS3Client(conf, DEFAULT_ENDPOINT, MARS_NORTH_2);
-    intercept(IllegalArgumentException.class, MARS_NORTH_2, client::getRegion);
+    S3Client client = createS3Client(conf, DEFAULT_ENDPOINT);
+    intercept(UnknownHostException.class, MARS_NORTH_2, () -> client.listBuckets());
   }
 
   /**
@@ -160,15 +162,13 @@ public class ITestS3AEndpointRegion extends AbstractS3ATestBase {
    * value.
    * @param conf configuration to use.
    * @param endpoint endpoint.
-   * @param expectedRegion expected region
    * @return the client.
    * @throws URISyntaxException parse problems.
    * @throws IOException IO problems
    */
   @SuppressWarnings("deprecation")
-  private AmazonS3 createS3Client(Configuration conf,
-      String endpoint,
-      String expectedRegion)
+  private S3Client createS3Client(Configuration conf,
+      String endpoint)
       throws URISyntaxException, IOException {
 
     DefaultS3ClientFactory factory
@@ -181,12 +181,9 @@ public class ITestS3AEndpointRegion extends AbstractS3ATestBase {
         .withEndpoint(endpoint)
         .withMetrics(new EmptyS3AStatisticsContext()
             .newStatisticsFromAwsSdk());
-    AmazonS3 client = factory.createS3Client(
+    S3Client client = factory.createS3Client(
         new URI("s3a://localhost/"),
         parameters);
-    Assertions.assertThat(client.getRegionName())
-        .describedAs("Client region name")
-        .isEqualTo(expectedRegion);
     return client;
   }
 }
