@@ -130,6 +130,7 @@ public class DefaultS3ClientFactory extends Configured
    * and then invoking {@code buildAmazonS3Client()}.
    */
   // TODO: Remove this and all code that configures the V1 S3 client.
+  @Override
   public AmazonS3 createS3Client(
       final URI uri,
       final S3ClientCreationParameters parameters) throws IOException {

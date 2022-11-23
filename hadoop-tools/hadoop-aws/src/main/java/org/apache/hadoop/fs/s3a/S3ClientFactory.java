@@ -54,6 +54,16 @@ import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_ENDPOINT;
 @InterfaceStability.Evolving
 public interface S3ClientFactory {
 
+  /**
+   * Creates a new {@link AmazonS3} client.
+   *
+   * @param uri S3A file system URI
+   * @param parameters parameter object
+   * @return S3 client
+   * @throws IOException IO problem
+   */
+  AmazonS3 createS3Client(URI uri,
+      S3ClientCreationParameters parameters) throws IOException;
 
   /**
    * Creates a new {@link S3Client}.

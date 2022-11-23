@@ -35,6 +35,8 @@ import software.amazon.awssdk.services.s3.S3Client;
  */
 public class MockS3ClientFactory implements S3ClientFactory {
 
+  // TODO: This will be removed when we remove this method for the client factory.
+  @Override
   public AmazonS3 createS3Client(URI uri,
       final S3ClientCreationParameters parameters) {
     AmazonS3 s3 = mock(AmazonS3.class);
