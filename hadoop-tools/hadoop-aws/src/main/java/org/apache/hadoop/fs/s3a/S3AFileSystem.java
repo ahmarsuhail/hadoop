@@ -59,6 +59,7 @@ import org.slf4j.LoggerFactory;
 
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
@@ -1163,10 +1164,14 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     // TODO: move to client factory?
     transferManager = S3TransferManager.builder()
         .s3ClientConfiguration(clientConfiguration ->
-            // TODO: other configuration options?
+            // TODO: Temporarily using EU_WEST_1 as the region, ultimately this can maybe moved to
+            //  the DefaultS3ClientFactory and use the region resolution logic there. Wait till we
+            //  finalise region logic before making any changes here. Also add other
+            //  configuration options?
             clientConfiguration
                 .minimumPartSizeInBytes(partSize)
-                .credentialsProvider(credentials))
+                .credentialsProvider(credentials)
+                .region(Region.EU_WEST_1))
         .transferConfiguration(transferConfiguration ->
             transferConfiguration.executor(unboundedThreadPool)) // TODO: double-check
         .build();
