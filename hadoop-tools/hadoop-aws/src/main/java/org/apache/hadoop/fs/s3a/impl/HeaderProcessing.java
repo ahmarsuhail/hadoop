@@ -29,11 +29,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import com.amazonaws.services.s3.Headers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.Path;

@@ -43,6 +43,7 @@ import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.util.AwsHostNameUtils;
 import com.amazonaws.util.RuntimeHttpUtils;
 
+import org.apache.hadoop.fs.s3a.impl.AWSClientConfig;
 import org.apache.hadoop.util.Preconditions;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;

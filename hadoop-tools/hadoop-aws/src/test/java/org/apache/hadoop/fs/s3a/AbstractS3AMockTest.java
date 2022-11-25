@@ -20,6 +20,10 @@ package org.apache.hadoop.fs.s3a;
 
 import static org.apache.hadoop.fs.s3a.Constants.*;
 
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.services.s3.S3Client;
+
 import java.net.URI;
 
 import org.apache.hadoop.conf.Configuration;
@@ -29,9 +33,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
 
-import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
-import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Abstract base class for S3A unit tests using a mock S3 client and a null

@@ -25,6 +25,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import software.amazon.awssdk.core.SdkRequest;
+import software.amazon.awssdk.core.SdkResponse;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.http.SdkHttpRequest;
+import software.amazon.awssdk.http.SdkHttpResponse;
+import software.amazon.awssdk.transfer.s3.progress.TransferListener;
 import org.apache.hadoop.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,15 +59,6 @@ import org.apache.hadoop.fs.store.LogExactlyOnce;
 import org.apache.hadoop.fs.statistics.impl.IOStatisticsStore;
 import org.apache.hadoop.service.CompositeService;
 import org.apache.hadoop.util.functional.FutureIO;
-
-import software.amazon.awssdk.core.SdkRequest;
-import software.amazon.awssdk.core.SdkResponse;
-import software.amazon.awssdk.core.interceptor.Context;
-import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
-import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.http.SdkHttpResponse;
-import software.amazon.awssdk.transfer.s3.progress.TransferListener;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.s3a.Statistic.AUDIT_FAILURE;

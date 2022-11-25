@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 
+import software.amazon.awssdk.core.exception.SdkException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +38,6 @@ import org.apache.hadoop.util.functional.FutureIO;
 import org.apache.hadoop.util.functional.InvocationRaisingIOE;
 import org.apache.hadoop.util.Preconditions;
 
-import software.amazon.awssdk.core.exception.SdkException;
 
 import static org.apache.hadoop.fs.statistics.impl.IOStatisticsBinding.invokeTrackingDuration;
 

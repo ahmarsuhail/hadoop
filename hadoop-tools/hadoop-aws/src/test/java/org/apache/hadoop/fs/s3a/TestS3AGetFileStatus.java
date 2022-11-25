@@ -29,13 +29,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.Path;
-
-import org.apache.hadoop.fs.contract.ContractTestUtils;
-import org.junit.Test;
-import org.mockito.ArgumentMatcher;
-
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -44,6 +37,14 @@ import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
+
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.Path;
+
+import org.apache.hadoop.fs.contract.ContractTestUtils;
+import org.junit.Test;
+import org.mockito.ArgumentMatcher;
+
 
 /**
  * S3A tests for getFileStatus using mock S3 client.
