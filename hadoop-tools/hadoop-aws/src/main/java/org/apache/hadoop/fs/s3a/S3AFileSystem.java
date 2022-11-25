@@ -51,7 +51,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
-import com.amazonaws.services.s3.Headers;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.regions.Region;
@@ -3724,7 +3723,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         long contentLength = meta.contentLength();
         // check if CSE is enabled, then strip padded length.
         if (isCSEEnabled &&
-            meta.metadata().get(Headers.CRYPTO_CEK_ALGORITHM) != null
+            meta.metadata().get(AWSHeaders.CRYPTO_CEK_ALGORITHM) != null
             && contentLength >= CSE_PADDING_LENGTH) {
           contentLength -= CSE_PADDING_LENGTH;
         }
