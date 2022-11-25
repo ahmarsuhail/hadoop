@@ -328,7 +328,7 @@ public class HeaderProcessing extends AbstractStoreOperation {
     maybeSetHeader(headers, XA_ETAG,
         md.eTag());
     maybeSetHeader(headers, XA_LAST_MODIFIED,
-       Date.from(md.lastModified()));
+        Date.from(md.lastModified()));
 
     // AWS custom headers
     maybeSetHeader(headers, XA_ARCHIVE_STATUS,

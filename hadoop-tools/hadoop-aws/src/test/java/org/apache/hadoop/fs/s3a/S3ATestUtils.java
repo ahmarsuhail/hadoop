@@ -674,7 +674,7 @@ public final class S3ATestUtils {
               ASSUMED_ROLE_STS_ENDPOINT_REGION_DEFAULT),
           duration,
           new Invoker(new S3ARetryPolicy(conf), Invoker.LOG_EVENT),
-           bucket );
+           bucket);
     sc.validate("requested session credentials: ",
         MarshalledCredentials.CredentialTypeRequired.SessionOnly);
     return sc;

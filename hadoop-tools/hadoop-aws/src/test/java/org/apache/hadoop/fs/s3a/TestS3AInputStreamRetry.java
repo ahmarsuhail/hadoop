@@ -133,7 +133,7 @@ public class TestS3AInputStreamRetry extends AbstractS3AMockTest {
             getMockedInputStream(objectResponse, true),
             getMockedInputStream(objectResponse, true),
             getMockedInputStream(objectResponse, false)
-    };
+        };
 
     return new S3AInputStream.InputStreamCallbacks() {
       private Integer mockedS3ObjectIndex = 0;

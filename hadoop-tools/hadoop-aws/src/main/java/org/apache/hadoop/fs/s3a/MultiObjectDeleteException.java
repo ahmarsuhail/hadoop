@@ -61,7 +61,9 @@ public class MultiObjectDeleteException extends S3Exception {
     this.errors = errors;
   }
 
-  public List<S3Error> errors() { return errors; }
+  public List<S3Error> errors() {
+    return errors;
+  }
 
   /**
    * A {@code MultiObjectDeleteException} is raised if one or more

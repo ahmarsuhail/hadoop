@@ -411,7 +411,7 @@ public final class ActiveAuditManagerS3A
     }
 
     // TODO: should we remove this and use Global/Service interceptors, see:
-    // https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/core/interceptor/ExecutionInterceptor.html
+    //  https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/core/interceptor/ExecutionInterceptor.html
     final Class<?>[] interceptors = getConfig().getClasses(AUDIT_EXECUTION_INTERCEPTORS);
     if (interceptors != null) {
       for (Class<?> handler : interceptors) {
@@ -540,15 +540,16 @@ public final class ActiveAuditManagerS3A
 
   /**
    * Forward to active span.
-   * @param request request
+   * @param context execution context
+   * @param executionAttributes the execution attributes
    * {@inheritDoc}
-   */@Override
+   */
+  @Override
   public void onExecutionFailure(Context.FailedExecution context,
       ExecutionAttributes executionAttributes) {
     try {
-      extractAndActivateSpanFromRequest(context.request(),
-          executionAttributes)
-          .onExecutionFailure(context, executionAttributes);
+      extractAndActivateSpanFromRequest(context.request(), executionAttributes).onExecutionFailure(
+          context, executionAttributes);
     } catch (AuditFailureException e) {
       ioStatisticsStore.incrementCounter(AUDIT_FAILURE.getSymbol());
       throw e;

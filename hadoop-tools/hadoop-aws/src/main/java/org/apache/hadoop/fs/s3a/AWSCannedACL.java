@@ -36,5 +36,7 @@ public enum AWSCannedACL {
     this.value = value;
   }
 
-  public String toString() { return this.value; }
+  public String toString() {
+    return this.value;
+  }
 }

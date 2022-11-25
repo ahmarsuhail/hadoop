@@ -730,7 +730,8 @@ public class WriteOperationHelper implements WriteOperations {
      * @param request selectObjectContent request
      * @return selectObjectContentResult
      */
-    CompletableFuture<Void> selectObjectContent(SelectObjectContentRequest request, SelectObjectContentResponseHandler t);
+    CompletableFuture<Void> selectObjectContent(SelectObjectContentRequest request,
+        SelectObjectContentResponseHandler t);
 
     /**
      * Initiates a complete multi-part upload request.

@@ -821,29 +821,25 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
 
   /**
    * Verify that the bucket exists.
-   * TODO: Review: this used to call doesBucketExist in v1, which does not check permissions, not even read access.
    * Retry policy: retrying, translated.
    * @throws UnknownStoreException the bucket is absent
    * @throws IOException any other problem talking to S3
    */
+  // TODO: Review: this used to call doesBucketExist in v1, which does not check permissions,
+  //  not even read access.
   @Retries.RetryTranslated
-  protected void verifyBucketExists()
-      throws UnknownStoreException, IOException {
+  protected void verifyBucketExists() throws UnknownStoreException, IOException {
     if (!invoker.retry("doesBucketExist", bucket, true,
-        trackDurationOfOperation(getDurationTrackerFactory(),
-            STORE_EXISTS_PROBE.getSymbol(),
+        trackDurationOfOperation(getDurationTrackerFactory(), STORE_EXISTS_PROBE.getSymbol(),
             () -> {
-          try {
-            s3Client.headBucket(HeadBucketRequest.builder()
-                .bucket(bucket)
-                .build());
-            return true;
-          } catch (NoSuchBucketException e) {
-            return false;
-          }
-        }))) {
-      throw new UnknownStoreException("s3a://" + bucket + "/", " Bucket does "
-          + "not exist");
+              try {
+                s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build());
+                return true;
+              } catch (NoSuchBucketException e) {
+                return false;
+              }
+            }))) {
+      throw new UnknownStoreException("s3a://" + bucket + "/", " Bucket does " + "not exist");
     }
   }
 
@@ -1090,13 +1086,13 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         .toUpperCase(Locale.US);
     StorageClass storageClass = null;
     if (!storageClassConf.isEmpty()) {
-        storageClass = StorageClass.fromValue(storageClassConf);
+      storageClass = StorageClass.fromValue(storageClassConf);
 
-        if (storageClass.equals(StorageClass.UNKNOWN_TO_SDK_VERSION)) {
-          LOG.warn("Unknown storage class property {}: {}; falling back to default storage class",
-              STORAGE_CLASS, storageClassConf);
-          storageClass = null;
-        }
+      if (storageClass.equals(StorageClass.UNKNOWN_TO_SDK_VERSION)) {
+        LOG.warn("Unknown storage class property {}: {}; falling back to default storage class",
+            STORAGE_CLASS, storageClassConf);
+        storageClass = null;
+      }
 
     } else {
       LOG.debug("Unset storage class property {}; falling back to default storage class",
@@ -1683,7 +1679,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     public CompletableFuture<Void> selectObjectContent(
         SelectObjectContentRequest request,
         SelectObjectContentResponseHandler responseHandler) {
-     return s3AsyncClient.selectObjectContent(request, responseHandler);
+      return s3AsyncClient.selectObjectContent(request, responseHandler);
     }
 
     @Override
@@ -2887,9 +2883,9 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
               // duration is tracked in the bulk delete counters
               trackDurationOfOperation(getDurationTrackerFactory(),
                   OBJECT_BULK_DELETE_REQUEST.getSymbol(), () -> {
-                incrementStatistic(OBJECT_DELETE_OBJECTS, keyCount);
-                return s3Client.deleteObjects(deleteRequest);
-              }));
+                  incrementStatistic(OBJECT_DELETE_OBJECTS, keyCount);
+                  return s3Client.deleteObjects(deleteRequest);
+                }));
 
       if (!response.errors().isEmpty()) {
         // one or more of the keys could not be deleted.

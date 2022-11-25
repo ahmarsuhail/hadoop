@@ -227,32 +227,23 @@ public class DefaultS3ClientFactory extends Configured
    * @param <BuilderT> S3 client builder type
    * @param <ClientT> S3 client type
    */
-  private <BuilderT extends S3BaseClientBuilder<BuilderT, ClientT>, ClientT>
-  BuilderT configureClientBuilder(
-      BuilderT builder,
-      S3ClientCreationParameters parameters,
-      Configuration conf,
-      String bucket) {
+  private <BuilderT extends S3BaseClientBuilder<BuilderT, ClientT>, ClientT> BuilderT configureClientBuilder(
+      BuilderT builder, S3ClientCreationParameters parameters, Configuration conf, String bucket) {
 
     URI endpoint = getS3Endpoint(parameters.getEndpoint(), conf);
-    Region region = getS3Region(conf.getTrimmed(AWS_REGION), bucket,
-        parameters.getCredentialSet());
+    Region region = getS3Region(conf.getTrimmed(AWS_REGION), bucket, parameters.getCredentialSet());
     LOG.debug("Using endpoint {}; and region {}", endpoint, region);
 
     // TODO: Some configuration done in configureBasicParams is not done yet.
-    S3Configuration serviceConfiguration = S3Configuration.builder()
-        .pathStyleAccessEnabled(parameters.isPathStyleAccess())
-        // TODO: Review. Currently required to pass access point tests in ITestS3ABucketExistence,
-        //  but resolving the region from the ap may be the correct solution.
-        .useArnRegionEnabled(true)
-        .build();
+    S3Configuration serviceConfiguration =
+        S3Configuration.builder().pathStyleAccessEnabled(parameters.isPathStyleAccess())
+            // TODO: Review. Currently required to pass access point tests in ITestS3ABucketExistence,
+            //  but resolving the region from the ap may be the correct solution.
+            .useArnRegionEnabled(true).build();
 
-    return builder
-        .overrideConfiguration(createClientOverrideConfiguration(parameters, conf))
-        .credentialsProvider(parameters.getCredentialSet())
-        .endpointOverride(endpoint)
-        .region(region)
-        .serviceConfiguration(serviceConfiguration);
+    return builder.overrideConfiguration(createClientOverrideConfiguration(parameters, conf))
+        .credentialsProvider(parameters.getCredentialSet()).endpointOverride(endpoint)
+        .region(region).serviceConfiguration(serviceConfiguration);
   }
 
   /**

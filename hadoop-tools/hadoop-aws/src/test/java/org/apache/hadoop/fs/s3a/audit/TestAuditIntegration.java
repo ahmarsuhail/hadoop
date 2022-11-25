@@ -179,7 +179,6 @@ public class TestAuditIntegration extends AbstractHadoopTestBase {
     // test the basic pre-request sequence while avoiding
     // the complexity of recreating the full sequence
     // (and probably getting it wrong)
-    // https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/core/interceptor/ExecutionInterceptor.html
     interceptor.beforeExecution(context, attributes);
     interceptor.modifyRequest(context, attributes);
     interceptor.beforeMarshalling(context, attributes);

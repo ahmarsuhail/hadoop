@@ -332,7 +332,7 @@ public class ITestSessionDelegationInFileystem extends AbstractDelegationIT {
     // force a probe of the remote FS to make sure its endpoint is valid
     // TODO: Previously a call to getObjectMetadata for a base path, ie with an empty key would
     //  return some metadata. (bucket region, content type). headObject() fails without a key, check
-    // how this can be fixed. 
+    // how this can be fixed.
     // fs.getObjectMetadata(new Path("/"));
     readLandsatMetadata(fs);
 

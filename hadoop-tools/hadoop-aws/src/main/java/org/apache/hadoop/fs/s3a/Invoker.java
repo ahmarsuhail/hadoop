@@ -444,7 +444,7 @@ public class Invoker {
    * @param operation operation to execute
    * @return the result of the call
    * @throws IOException any IOE raised
-   * @throws SdkBaseException any AWS exception raised
+   * @throws SdkException any AWS exception raised
    * @throws RuntimeException : these are never caught and retries.
    */
   @Retries.RetryRaw

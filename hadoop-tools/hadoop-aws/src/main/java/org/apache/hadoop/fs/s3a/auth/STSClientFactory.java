@@ -118,11 +118,8 @@ public class STSClientFactory {
    * @param stsRegion the region, e.g "us-west-1". Must be set if endpoint is.
    * @return the builder to call {@code build()}
    */
-  public static StsClientBuilder builder(
-      final AwsCredentialsProvider credentials,
-      final Configuration conf,
-      final String stsEndpoint,
-      final String stsRegion,
+  public static StsClientBuilder builder(final AwsCredentialsProvider credentials,
+      final Configuration conf, final String stsEndpoint, final String stsRegion,
       final String bucket) throws IOException {
     final StsClientBuilder stsClientBuilder = StsClient.builder();
 
@@ -136,31 +133,25 @@ public class STSClientFactory {
 
     final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
 
-    final ProxyConfiguration proxyConfig =
-        AWSClientConfig.createProxyConfiguration(conf, bucket);
+    final ProxyConfiguration proxyConfig = AWSClientConfig.createProxyConfiguration(conf, bucket);
 
     clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());
     httpClientBuilder.proxyConfiguration(proxyConfig);
 
-    stsClientBuilder
-        .httpClientBuilder(httpClientBuilder)
+    stsClientBuilder.httpClientBuilder(httpClientBuilder)
         .overrideConfiguration(clientOverrideConfigBuilder.build())
-       .credentialsProvider(credentials);
+        .credentialsProvider(credentials);
 
     // TODO: SIGNERS NOT ADDED YET.
     boolean destIsStandardEndpoint = STS_STANDARD.equals(stsEndpoint);
     if (isNotEmpty(stsEndpoint) && !destIsStandardEndpoint) {
-      Preconditions.checkArgument(
-          isNotEmpty(stsRegion),
-          "STS endpoint is set to %s but no signing region was provided",
-          stsEndpoint);
+      Preconditions.checkArgument(isNotEmpty(stsRegion),
+          "STS endpoint is set to %s but no signing region was provided", stsEndpoint);
       LOG.debug("STS Endpoint={}; region='{}'", stsEndpoint, stsRegion);
-      stsClientBuilder.endpointOverride(getSTSEndpoint(stsEndpoint))
-          .region(Region.of(stsRegion));
+      stsClientBuilder.endpointOverride(getSTSEndpoint(stsEndpoint)).region(Region.of(stsRegion));
     } else {
       Preconditions.checkArgument(isEmpty(stsRegion),
-          "STS signing region set set to %s but no STS endpoint specified",
-          stsRegion);
+          "STS signing region set set to %s but no STS endpoint specified", stsRegion);
     }
     return stsClientBuilder;
   }
@@ -174,7 +165,7 @@ public class STSClientFactory {
   private static URI getSTSEndpoint(String endpoint) {
     try {
       // TODO: The URI builder is currently imported via a shaded dependency. This is due to TM
-      //  preview dependency causing some issues. 
+      //  preview dependency causing some issues.
       return new URIBuilder().setScheme("https").setHost(endpoint).build();
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException(e);
