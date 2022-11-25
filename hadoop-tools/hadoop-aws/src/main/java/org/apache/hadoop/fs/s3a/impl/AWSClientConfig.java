@@ -32,6 +32,8 @@ import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+// TODO: Update to use the non shaded dependency. There is an issue with the preview version of TM
+//  which is preventing this, should be resolve with the TM release.
 import software.amazon.awssdk.thirdparty.org.apache.http.client.utils.URIBuilder;
 
 import org.apache.hadoop.conf.Configuration;

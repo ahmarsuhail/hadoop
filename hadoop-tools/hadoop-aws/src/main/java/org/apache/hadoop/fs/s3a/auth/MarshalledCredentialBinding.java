@@ -188,6 +188,7 @@ public final class MarshalledCredentialBinding {
    * @param stsRegion region; use if the endpoint isn't the AWS default.
    * @param duration duration of the credentials in seconds. Minimum value: 900.
    * @param invoker invoker to use for retrying the call.
+   * @param bucket bucket name.
    * @return the credentials
    * @throws IOException on a failure of the request
    */
@@ -205,7 +206,8 @@ public final class MarshalledCredentialBinding {
           STSClientFactory.builder(parentCredentials,
               configuration,
               stsEndpoint.isEmpty() ? null : stsEndpoint,
-              stsRegion, bucket)
+              stsRegion,
+              bucket)
               .build();
       try (STSClientFactory.STSClient stsClient = STSClientFactory.createClientConnection(
           tokenService, invoker)) {

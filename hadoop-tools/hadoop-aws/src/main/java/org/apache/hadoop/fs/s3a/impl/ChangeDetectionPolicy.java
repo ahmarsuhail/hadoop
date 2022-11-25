@@ -434,7 +434,8 @@ public abstract class ChangeDetectionPolicy {
             CHANGE_DETECT_MODE + " set to " + Source.VersionId
                 + " but no versionId available while reading {}. "
                 + "Ensure your bucket has object versioning enabled. "
-                + "You may see inconsistent reads.", uri);
+                + "You may see inconsistent reads.",
+            uri);
       }
       return versionId;
     }
