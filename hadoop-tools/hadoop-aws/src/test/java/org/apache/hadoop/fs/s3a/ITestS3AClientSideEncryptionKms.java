@@ -25,6 +25,7 @@ import org.assertj.core.api.Assertions;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.s3a.impl.AWSHeaders;
 import org.apache.hadoop.fs.s3a.impl.HeaderProcessing;
 
 import static org.apache.hadoop.fs.s3a.S3ATestUtils.getTestBucketName;

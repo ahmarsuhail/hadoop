@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a;
+package org.apache.hadoop.fs.s3a.impl;
 
 /**
  * Common S3 HTTP header values used throughout the Amazon Web Services S3 Java client.

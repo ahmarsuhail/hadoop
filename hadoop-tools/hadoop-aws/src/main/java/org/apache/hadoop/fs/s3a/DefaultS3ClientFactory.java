@@ -73,7 +73,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.s3a.statistics.impl.AwsStatisticsCollector;
 import org.apache.hadoop.fs.store.LogExactlyOnce;
 
-import static org.apache.hadoop.fs.s3a.AWSHeaders.REQUESTER_PAYS_HEADER;
+import static org.apache.hadoop.fs.s3a.impl.AWSHeaders.REQUESTER_PAYS_HEADER;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_REGION;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_S3_CENTRAL_REGION;
 import static org.apache.hadoop.fs.s3a.Constants.BUCKET_REGION_HEADER;
@@ -236,15 +236,19 @@ public class DefaultS3ClientFactory extends Configured
     LOG.debug("Using endpoint {}; and region {}", endpoint, region);
 
     // TODO: Some configuration done in configureBasicParams is not done yet.
-    S3Configuration serviceConfiguration =
-        S3Configuration.builder().pathStyleAccessEnabled(parameters.isPathStyleAccess())
+    S3Configuration serviceConfiguration = S3Configuration.builder()
+            .pathStyleAccessEnabled(parameters.isPathStyleAccess())
             // TODO: Review. Currently required to pass access point tests in ITestS3ABucketExistence,
             //  but resolving the region from the ap may be the correct solution.
-            .useArnRegionEnabled(true).build();
+            .useArnRegionEnabled(true)
+            .build();
 
-    return builder.overrideConfiguration(createClientOverrideConfiguration(parameters, conf))
-        .credentialsProvider(parameters.getCredentialSet()).endpointOverride(endpoint)
-        .region(region).serviceConfiguration(serviceConfiguration);
+    return builder
+        .overrideConfiguration(createClientOverrideConfiguration(parameters, conf))
+        .credentialsProvider(parameters.getCredentialSet())
+        .endpointOverride(endpoint)
+        .region(region)
+        .serviceConfiguration(serviceConfiguration);
   }
 
   /**
