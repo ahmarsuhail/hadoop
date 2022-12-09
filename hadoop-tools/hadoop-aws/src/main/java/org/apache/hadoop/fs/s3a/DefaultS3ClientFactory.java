@@ -25,9 +25,7 @@ import java.util.List;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.SdkClientException;
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
@@ -45,20 +43,22 @@ import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.util.AwsHostNameUtils;
 import com.amazonaws.util.RuntimeHttpUtils;
 
-import org.apache.hadoop.fs.s3a.adapter.V1V2AwsCredentialProviderAdapter;
 import org.apache.hadoop.util.Preconditions;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3BaseClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
@@ -80,12 +80,11 @@ import static org.apache.hadoop.fs.s3a.Constants.CENTRAL_ENDPOINT;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_SECURE_CONNECTIONS;
 import static org.apache.hadoop.fs.s3a.Constants.EXPERIMENTAL_AWS_INTERNAL_THROTTLING;
 import static org.apache.hadoop.fs.s3a.Constants.EXPERIMENTAL_AWS_INTERNAL_THROTTLING_DEFAULT;
-import static org.apache.hadoop.fs.s3a.Constants.HTTP_STATUS_CODE_MOVED_PERMANENTLY;
 import static org.apache.hadoop.fs.s3a.Constants.S3_ENCRYPTION_KEY;
 import static org.apache.hadoop.fs.s3a.Constants.SECURE_CONNECTIONS;
 import static org.apache.hadoop.fs.s3a.S3AUtils.getEncryptionAlgorithm;
 import static org.apache.hadoop.fs.s3a.S3AUtils.getS3EncryptionKey;
-import static org.apache.hadoop.fs.s3a.S3AUtils.translateException;
+import static org.apache.hadoop.fs.s3a.impl.InternalConstants.SC_301_MOVED_PERMANENTLY;
 
 /**
  * The default {@link S3ClientFactory} implementation.
@@ -94,7 +93,6 @@ import static org.apache.hadoop.fs.s3a.S3AUtils.translateException;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-@SuppressWarnings("deprecation")
 public class DefaultS3ClientFactory extends Configured
     implements S3ClientFactory {
 
@@ -131,6 +129,7 @@ public class DefaultS3ClientFactory extends Configured
    * Create the client by preparing the AwsConf configuration
    * and then invoking {@code buildAmazonS3Client()}.
    */
+  // TODO: Remove this and all code that configures the V1 S3 client.
   @Override
   public AmazonS3 createS3Client(
       final URI uri,
@@ -180,18 +179,12 @@ public class DefaultS3ClientFactory extends Configured
       }
     } catch (SdkClientException e) {
       // SDK refused to build.
-      throw translateException("creating AWS S3 client", uri.toString(), e);
+      // TODO: remove?
+      //throw translateException("creating AWS S3 client", uri.toString(), e);
+      throw new IOException("creating AWS S3 client: "+ uri.toString(), e);
     }
   }
 
-  /**
-   * Creates a new {@link S3Client}.
-   *
-   * @param uri S3A file system URI
-   * @param parameters parameter object
-   * @return S3 client
-   * @throws IOException on any IO problem
-   */
   @Override
   public S3Client createS3ClientV2(
       final URI uri,
@@ -200,18 +193,78 @@ public class DefaultS3ClientFactory extends Configured
     Configuration conf = getConf();
     bucket = uri.getHost();
 
+    ApacheHttpClient.Builder httpClientBuilder = AWSClientConfig
+        .createHttpClientBuilder(conf)
+        .proxyConfiguration(AWSClientConfig.createProxyConfiguration(conf, bucket));
+    return configureClientBuilder(S3Client.builder(), parameters, conf, bucket)
+        .httpClientBuilder(httpClientBuilder)
+        .build();
+  }
+
+  @Override
+  public S3AsyncClient createS3AsyncClient(
+      final URI uri,
+      final S3ClientCreationParameters parameters) throws IOException {
+
+    Configuration conf = getConf();
+    bucket = uri.getHost();
+    NettyNioAsyncHttpClient.Builder httpClientBuilder = AWSClientConfig
+        .createAsyncHttpClientBuilder(conf)
+        .proxyConfiguration(AWSClientConfig.createAsyncProxyConfiguration(conf, bucket));
+    return configureClientBuilder(S3AsyncClient.builder(), parameters, conf, bucket)
+        .httpClientBuilder(httpClientBuilder)
+        .build();
+  }
+
+  /**
+   * Configure a sync or async S3 client builder.
+   * This method handles all shared configuration.
+   * @param builder S3 client builder
+   * @param parameters parameter object
+   * @param conf configuration object
+   * @param bucket bucket name
+   * @return the builder object
+   * @param <BuilderT> S3 client builder type
+   * @param <ClientT> S3 client type
+   */
+  private <BuilderT extends S3BaseClientBuilder<BuilderT, ClientT>, ClientT>
+  BuilderT configureClientBuilder(
+      BuilderT builder,
+      S3ClientCreationParameters parameters,
+      Configuration conf,
+      String bucket) {
+
+    URI endpoint = getS3Endpoint(parameters.getEndpoint(), conf);
+    Region region = getS3Region(conf.getTrimmed(AWS_REGION), bucket,
+        parameters.getCredentialSet());
+    LOG.debug("Using endpoint {}; and region {}", endpoint, region);
+
+    // TODO: Some configuration done in configureBasicParams is not done yet.
+    S3Configuration serviceConfiguration = S3Configuration.builder()
+        .pathStyleAccessEnabled(parameters.isPathStyleAccess())
+        // TODO: Review. Currently required to pass access point tests in ITestS3ABucketExistence,
+        //  but resolving the region from the ap may be the correct solution.
+        .useArnRegionEnabled(true)
+        .build();
+
+    return builder
+        .overrideConfiguration(createClientOverrideConfiguration(parameters, conf))
+        .credentialsProvider(parameters.getCredentialSet())
+        .endpointOverride(endpoint)
+        .region(region)
+        .serviceConfiguration(serviceConfiguration);
+  }
+
+  /**
+   * Create an override configuration for an S3 client.
+   * @param parameters parameter object
+   * @param conf configuration object
+   * @return the override configuration
+   */
+  protected ClientOverrideConfiguration createClientOverrideConfiguration(
+      S3ClientCreationParameters parameters, Configuration conf) {
     final ClientOverrideConfiguration.Builder clientOverrideConfigBuilder =
         AWSClientConfig.createClientConfigBuilder(conf);
-
-    final ApacheHttpClient.Builder httpClientBuilder =
-        AWSClientConfig.createHttpClientBuilder(conf);
-
-    final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
-
-    final ProxyConfiguration.Builder proxyConfigBuilder =
-        AWSClientConfig.createProxyConfigurationBuilder(conf, bucket);
-
-    S3ClientBuilder s3ClientBuilder = S3Client.builder();
 
     // add any headers
     parameters.getHeaders().forEach((h, v) -> clientOverrideConfigBuilder.putHeader(h, v));
@@ -226,39 +279,22 @@ public class DefaultS3ClientFactory extends Configured
           parameters.getUserAgentSuffix());
     }
 
+    if (parameters.getExecutionInterceptors() != null) {
+      for (ExecutionInterceptor interceptor : parameters.getExecutionInterceptors()) {
+        clientOverrideConfigBuilder.addExecutionInterceptor(interceptor);
+      }
+    }
+
+    if (parameters.getMetrics() != null) {
+      clientOverrideConfigBuilder.addMetricPublisher(
+          new AwsStatisticsCollector(parameters.getMetrics()));
+    }
+
+    final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
     clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());
-    httpClientBuilder.proxyConfiguration(proxyConfigBuilder.build());
 
-    s3ClientBuilder.httpClientBuilder(httpClientBuilder)
-        .overrideConfiguration(clientOverrideConfigBuilder.build());
-
-    // use adapter classes so V1 credential providers continue to work. This will be moved to
-    // AWSCredentialProviderList.add() when that class is updated.
-    s3ClientBuilder.credentialsProvider(
-        V1V2AwsCredentialProviderAdapter.adapt(parameters.getCredentialSet()));
-
-    URI endpoint = getS3Endpoint(parameters.getEndpoint(), conf);
-
-    Region region =
-        getS3Region(conf.getTrimmed(AWS_REGION), parameters.getCredentialSet());
-
-    LOG.debug("Using endpoint {}; and region {}", endpoint, region);
-
-    s3ClientBuilder.endpointOverride(endpoint).region(region);
-
-    S3Configuration s3Configuration = S3Configuration.builder()
-        .pathStyleAccessEnabled(parameters.isPathStyleAccess())
-        .build();
-
-    s3ClientBuilder.serviceConfiguration(s3Configuration);
-
-    // TODO: Some configuration done in configureBasicParams is not done yet.
-    //  Request handlers will be added during auditor work. Need to verify how metrics collection
-    //  can be done, as SDK V2 only seems to have a metrics publisher.
-
-    return s3ClientBuilder.build();
+    return clientOverrideConfigBuilder.build();
   }
-
 
   /**
    * Create an {@link AmazonS3} client of type
@@ -351,18 +387,11 @@ public class DefaultS3ClientFactory extends Configured
    */
   private void configureBasicParams(AmazonS3Builder builder,
       ClientConfiguration awsConf, S3ClientCreationParameters parameters) {
-    builder.withCredentials(parameters.getCredentialSet());
+    // TODO: This whole block will be removed when we remove the V1 client.
+   // builder.withCredentials(parameters.getCredentialSet());
     builder.withClientConfiguration(awsConf);
     builder.withPathStyleAccessEnabled(parameters.isPathStyleAccess());
 
-    if (parameters.getMetrics() != null) {
-      builder.withMetricsCollector(
-          new AwsStatisticsCollector(parameters.getMetrics()));
-    }
-    if (parameters.getRequestHandlers() != null) {
-      builder.withRequestHandlers(
-          parameters.getRequestHandlers().toArray(new RequestHandler2[0]));
-    }
     if (parameters.getMonitoringListener() != null) {
       builder.withMonitoringListener(parameters.getMonitoringListener());
     }
@@ -525,10 +554,12 @@ public class DefaultS3ClientFactory extends Configured
    *
    * @param region AWS S3 Region set in the config. This property may not be set, in which case
    *               ask S3 for the region.
+   * @param bucket Bucket name.
    * @param credentialsProvider Credentials provider to be used with the default s3 client.
    * @return region of the bucket.
    */
-  private Region getS3Region(String region, AWSCredentialsProvider credentialsProvider) {
+  private static Region getS3Region(String region, String bucket,
+      AwsCredentialsProvider credentialsProvider) {
 
     if (!StringUtils.isBlank(region)) {
       return Region.of(region);
@@ -541,7 +572,7 @@ public class DefaultS3ClientFactory extends Configured
       // the actual region the bucket is in. As the request is signed with us-east-1 and not the
       // bucket's region, it fails.
       S3Client s3Client = S3Client.builder().region(Region.EU_WEST_1)
-          .credentialsProvider(V1V2AwsCredentialProviderAdapter.adapt(credentialsProvider))
+          .credentialsProvider(credentialsProvider)
           .build();
 
       HeadBucketResponse headBucketResponse =
@@ -549,7 +580,7 @@ public class DefaultS3ClientFactory extends Configured
       return Region.of(
           headBucketResponse.sdkHttpResponse().headers().get(BUCKET_REGION_HEADER).get(0));
     } catch (S3Exception exception) {
-      if (exception.statusCode() == HTTP_STATUS_CODE_MOVED_PERMANENTLY) {
+      if (exception.statusCode() == SC_301_MOVED_PERMANENTLY) {
         List<String> bucketRegion =
             exception.awsErrorDetails().sdkHttpResponse().headers().get(BUCKET_REGION_HEADER);
         return Region.of(bucketRegion.get(0));

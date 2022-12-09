@@ -477,7 +477,7 @@ public abstract class ChangeDetectionPolicy {
         String revisionId) {
       if (revisionId != null) {
         LOG.debug("Restricting metadata request to version {}", revisionId);
-        requestBuilder.versionId(revisionId).build();
+        requestBuilder.versionId(revisionId);
       } else {
         LOG.debug("No version ID to use as a constraint");
       }

@@ -18,12 +18,12 @@
 
 package org.apache.hadoop.fs.s3a.impl;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.SdkBaseException;
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.s3a.RemoteFileChangedException;
 import org.apache.hadoop.fs.s3a.S3ObjectAttributes;
 import org.apache.hadoop.fs.s3a.statistics.ChangeTrackerStatistics;
 
+import static org.apache.hadoop.fs.s3a.impl.InternalConstants.SC_412_PRECONDITION_FAILED;
 import static org.apache.hadoop.util.Preconditions.checkNotNull;
 
 /**
@@ -56,8 +57,6 @@ public class ChangeTracker {
   private static final Logger LOG =
       LoggerFactory.getLogger(ChangeTracker.class);
 
-  /** {@code 412 Precondition Failed} (HTTP/1.1 - RFC 2616) */
-  public static final int SC_PRECONDITION_FAILED = 412;
   public static final String CHANGE_REPORTED_BY_S3 = "Change reported by S3";
 
   /** Policy to use. */
@@ -230,13 +229,14 @@ public class ChangeTracker {
    * generated (e.g. "copy", "read", "select").
    * @throws RemoteFileChangedException if the remote file has changed.
    */
-  public void processException(SdkBaseException e, String operation) throws
+  public void processException(SdkException e, String operation) throws
       RemoteFileChangedException {
-    if (e instanceof AmazonServiceException) {
-      AmazonServiceException serviceException = (AmazonServiceException) e;
-      // This isn't really going to be hit due to
+    if (e instanceof AwsServiceException) {
+      AwsServiceException serviceException = (AwsServiceException)e;
+      // TODO: Verify whether this is fixed in SDK v2.
+      // In SDK v1, this wasn't really going to be hit due to
       // https://github.com/aws/aws-sdk-java/issues/1644
-      if (serviceException.getStatusCode() == SC_PRECONDITION_FAILED) {
+      if (serviceException.statusCode() == SC_412_PRECONDITION_FAILED) {
         versionMismatches.versionMismatchError();
         throw new RemoteFileChangedException(uri, operation, String.format(
             RemoteFileChangedException.PRECONDITIONS_FAILED

@@ -20,7 +20,6 @@ package org.apache.hadoop.fs.s3a;
 
 import java.io.IOException;
 
-import com.amazonaws.services.s3.model.ObjectMetadata;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
 import org.apache.commons.codec.digest.DigestUtils;

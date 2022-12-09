@@ -20,9 +20,6 @@ package org.apache.hadoop.fs.s3a;
 
 import static org.apache.hadoop.fs.s3a.Constants.*;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.s3.AmazonS3;
-
 import java.net.URI;
 
 import org.apache.hadoop.conf.Configuration;
@@ -31,6 +28,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
+
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.services.s3.S3Client;
 
 /**
@@ -40,17 +40,19 @@ import software.amazon.awssdk.services.s3.S3Client;
 public abstract class AbstractS3AMockTest {
 
   protected static final String BUCKET = "mock-bucket";
-  protected static final AmazonServiceException NOT_FOUND;
-  static {
-    NOT_FOUND = new AmazonServiceException("Not Found");
-    NOT_FOUND.setStatusCode(404);
-  }
+  protected static final AwsServiceException NOT_FOUND =
+      AwsServiceException.builder()
+          .message("Not Found")
+          .statusCode(404)
+          .awsErrorDetails(AwsErrorDetails.builder()
+              .errorCode("")
+              .build())
+          .build();
 
   @Rule
   public ExpectedException exception = ExpectedException.none();
 
   protected S3AFileSystem fs;
-  protected AmazonS3 s3;
   protected S3Client s3V2;
 
   @Before
@@ -61,11 +63,9 @@ public abstract class AbstractS3AMockTest {
     // unset S3CSE property from config to avoid pathIOE.
     conf.unset(Constants.S3_ENCRYPTION_ALGORITHM);
     fs.initialize(uri, conf);
-    s3 = fs.getAmazonS3ClientForTesting("mocking");
     s3V2 = fs.getAmazonS3V2ClientForTesting("mocking");
   }
 
-  @SuppressWarnings("deprecation")
   public Configuration createConfiguration() {
     Configuration conf = new Configuration();
     conf.setClass(S3_CLIENT_FACTORY_IMPL, MockS3ClientFactory.class,

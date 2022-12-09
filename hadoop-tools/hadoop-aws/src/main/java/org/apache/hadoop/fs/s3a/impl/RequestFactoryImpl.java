@@ -18,46 +18,39 @@
 
 package org.apache.hadoop.fs.s3a.impl;
 
-import java.io.File;
-import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
-import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
-import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.s3.model.DeleteObjectRequest;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
-import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
-import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
-import com.amazonaws.services.s3.model.SSECustomerKey;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import com.amazonaws.services.s3.model.StorageClass;
-import com.amazonaws.services.s3.model.UploadPartRequest;
 import org.apache.hadoop.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import software.amazon.awssdk.awscore.AwsRequest;
+import software.amazon.awssdk.core.SdkRequest;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListMultipartUploadsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.MetadataDirective;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
+import software.amazon.awssdk.services.s3.model.StorageClass;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.utils.Md5Utils;
 
 import org.apache.hadoop.fs.PathIOException;
@@ -85,8 +78,8 @@ import static org.apache.hadoop.util.Preconditions.checkNotNull;
  * This is where audit span information is added to the requests,
  * until it is done in the AWS SDK itself.
  *
- * All created requests will be passed through
- * {@link PrepareRequest#prepareRequest(AmazonWebServiceRequest)} before
+ * All created request builders will be passed to
+ * {@link PrepareRequest#prepareRequest(SdkRequest.Builder)} before
  * being returned to the caller.
  */
 public class RequestFactoryImpl implements RequestFactory {
@@ -107,9 +100,7 @@ public class RequestFactoryImpl implements RequestFactory {
   /**
    * ACL For new objects.
    */
-  // TODO: Set this to V2's ObjectCannedACL, and replace cannedACL.toString().
-  //  To be done during MPU update work.
-  private final CannedAccessControlList cannedACL;
+  private final ObjectCannedACL cannedACL;
 
   /**
    * Max number of multipart entries allowed in a large
@@ -149,24 +140,14 @@ public class RequestFactoryImpl implements RequestFactory {
 
   /**
    * Preflight preparation of AWS request.
-   * @param <T> web service request
-   * @return prepared entry.
+   * @param <T> web service request builder
+   * @return prepared builder.
    */
   @Retries.OnceRaw
-  private <T extends AmazonWebServiceRequest> T prepareRequest(T t) {
-    return requestPreparer != null
-        ? requestPreparer.prepareRequest(t)
-        : t;
-  }
-
-  /**
-   * Preflight preparation of V2 AWS request.
-   * @param <T> web service request
-   * @return prepared entry.
-   */
-  // TODO: Currently this is a NOOP, will be completed separately as part of auditor work.
-  @Retries.OnceRaw
-  private <T extends AwsRequest.Builder> T prepareV2Request(T t) {
+  private <T extends SdkRequest.Builder> T prepareRequest(T t) {
+    if (requestPreparer != null) {
+      requestPreparer.prepareRequest(t);
+    }
     return t;
   }
 
@@ -175,7 +156,7 @@ public class RequestFactoryImpl implements RequestFactory {
    * @return an ACL, if any
    */
   @Override
-  public CannedAccessControlList getCannedACL() {
+  public ObjectCannedACL getCannedACL() {
     return cannedACL;
   }
 
@@ -185,33 +166,6 @@ public class RequestFactoryImpl implements RequestFactory {
    */
   protected String getBucket() {
     return bucket;
-  }
-
-  /**
-   * Create the AWS SDK structure used to configure SSE,
-   * if the encryption secrets contain the information/settings for this.
-   * @return an optional set of KMS Key settings
-   */
-  // TODO: This method can be removed during getObject work, as the key now comes directly from
-  //  EncryptionSecretOperations.getSSEAwsKMSKey.
-  @Override
-  public Optional<SSEAwsKeyManagementParams> generateSSEAwsKeyParams() {
-    return EncryptionSecretOperations.createSSEAwsKeyManagementParams(
-        encryptionSecrets);
-  }
-
-  /**
-   * Create the SSE-C structure for the AWS SDK, if the encryption secrets
-   * contain the information/settings for this.
-   * This will contain a secret extracted from the bucket/configuration.
-   * @return an optional customer key.
-   */
-  // TODO: This method can be removed during getObject work, as the key now comes directly from
-  //  EncryptionSecretOperations.getSSECustomerKey.
-  @Override
-  public Optional<SSECustomerKey> generateSSECustomerKey() {
-    return EncryptionSecretOperations.createSSECustomerKey(
-        encryptionSecrets);
   }
 
   /**
@@ -246,20 +200,15 @@ public class RequestFactoryImpl implements RequestFactory {
    * request when encryption is enabled.
    * @param request upload part request
    */
-  protected void setOptionalUploadPartRequestParameters(
-      UploadPartRequest request) {
-    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
-  }
-
-  /**
-   * Set the optional parameters when initiating the request (encryption,
-   * headers, storage, etc).
-   * @param request request to patch.
-   */
-  protected void setOptionalMultipartUploadRequestParameters(
-      InitiateMultipartUploadRequest request) {
-    generateSSEAwsKeyParams().ifPresent(request::setSSEAwsKeyManagementParams);
-    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
+  protected void uploadPartEncryptionParameters(
+      UploadPartRequest.Builder builder) {
+    // TODO: review/refactor together with similar methods for other requests.
+    // need to set key to get objects encrypted with SSE_C
+    EncryptionSecretOperations.getSSECustomerKey(encryptionSecrets).ifPresent(base64customerKey -> {
+      builder.sseCustomerAlgorithm(ServerSideEncryption.AES256.name())
+          .sseCustomerKey(base64customerKey)
+          .sseCustomerKeyMD5(Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
+    });
   }
 
   private CopyObjectRequest.Builder buildCopyObjectRequest() {
@@ -284,14 +233,11 @@ public class RequestFactoryImpl implements RequestFactory {
     HeaderProcessing.cloneObjectMetadata(srcom, dstom, copyObjectRequestBuilder);
     copyEncryptionParameters(copyObjectRequestBuilder);
 
-    // TODO: CannedACL will be converted to V2's ObjectCannedACL during MPU work.
-    if (cannedACL != null) {
-      copyObjectRequestBuilder.acl(cannedACL.toString());
-    }
-
     copyObjectRequestBuilder
         .metadata(dstom)
-        .metadataDirective(MetadataDirective.REPLACE);
+        .metadataDirective(MetadataDirective.REPLACE)
+        .acl(cannedACL);
+
     if (srcom.storageClass() != null) {
       copyObjectRequestBuilder.storageClass(srcom.storageClass());
     }
@@ -299,7 +245,7 @@ public class RequestFactoryImpl implements RequestFactory {
     copyObjectRequestBuilder.destinationBucket(getBucket())
         .destinationKey(dstKey).sourceBucket(getBucket()).sourceKey(srcKey);
 
-    return prepareV2Request(copyObjectRequestBuilder);
+    return prepareRequest(copyObjectRequestBuilder);
   }
 
   /**
@@ -357,21 +303,18 @@ public class RequestFactoryImpl implements RequestFactory {
 
     putEncryptionParameters(putObjectRequestBuilder);
 
-    // TODO: CannedACL will be converted to V2's ObjectCannedACL during MPU work.
-    if (cannedACL != null) {
-      putObjectRequestBuilder.acl(cannedACL.toString());
-    }
-
     if (storageClass != null) {
-      putObjectRequestBuilder.storageClass(storageClass.toString());
+      putObjectRequestBuilder.storageClass(storageClass);
     }
 
-    return prepareV2Request(putObjectRequestBuilder);
+    return prepareRequest(putObjectRequestBuilder);
   }
 
   private PutObjectRequest.Builder buildPutObjectRequest(long length, boolean isDirectoryMarker) {
 
     PutObjectRequest.Builder putObjectRequestBuilder = PutObjectRequest.builder();
+
+    putObjectRequestBuilder.acl(cannedACL);
 
     if (length >= 0) {
       putObjectRequestBuilder.contentLength(length);
@@ -418,62 +361,92 @@ public class RequestFactoryImpl implements RequestFactory {
         .contentType(HeaderProcessing.CONTENT_TYPE_X_DIRECTORY);
 
     putEncryptionParameters(putObjectRequestBuilder);
-    if(cannedACL != null) {
-      putObjectRequestBuilder.acl(cannedACL.toString());
-    }
 
-    return prepareV2Request(putObjectRequestBuilder);
+    return prepareRequest(putObjectRequestBuilder);
   }
 
   @Override
-  public ListMultipartUploadsRequest
-      newListMultipartUploadsRequest(String prefix) {
-    ListMultipartUploadsRequest request = new ListMultipartUploadsRequest(
-        getBucket());
+  public ListMultipartUploadsRequest.Builder
+      newListMultipartUploadsRequestBuilder(String prefix) {
+
+    ListMultipartUploadsRequest.Builder requestBuilder = ListMultipartUploadsRequest.builder();
+
+    requestBuilder.bucket(getBucket());
     if (prefix != null) {
-      request.setPrefix(prefix);
+      requestBuilder.prefix(prefix);
     }
-    return prepareRequest(request);
+    return prepareRequest(requestBuilder);
   }
 
   @Override
-  public AbortMultipartUploadRequest newAbortMultipartUploadRequest(
+  public AbortMultipartUploadRequest.Builder newAbortMultipartUploadRequestBuilder(
       String destKey,
       String uploadId) {
-    return prepareRequest(new AbortMultipartUploadRequest(getBucket(),
-        destKey,
-        uploadId));
+    AbortMultipartUploadRequest.Builder requestBuilder =
+        AbortMultipartUploadRequest.builder().bucket(getBucket()).key(destKey).uploadId(uploadId);
+
+    return prepareRequest(requestBuilder);
+  }
+
+  private void multipartUploadEncryptionParameters(CreateMultipartUploadRequest.Builder mpuRequestBuilder) {
+    final S3AEncryptionMethods algorithm
+        = getServerSideEncryptionAlgorithm();
+
+    if (S3AEncryptionMethods.SSE_S3 == algorithm) {
+      mpuRequestBuilder.serverSideEncryption(algorithm.getMethod());
+    } else if (S3AEncryptionMethods.SSE_KMS == algorithm) {
+      mpuRequestBuilder.serverSideEncryption(ServerSideEncryption.AWS_KMS);
+      // Set the KMS key if present, else S3 uses AWS managed key.
+      EncryptionSecretOperations.getSSEAwsKMSKey(encryptionSecrets)
+          .ifPresent(kmsKey -> mpuRequestBuilder.ssekmsKeyId(kmsKey));
+    } else if (S3AEncryptionMethods.SSE_C == algorithm) {
+      EncryptionSecretOperations.getSSECustomerKey(encryptionSecrets)
+          .ifPresent(base64customerKey -> {
+            mpuRequestBuilder.sseCustomerAlgorithm(ServerSideEncryption.AES256.name())
+                .sseCustomerKey(base64customerKey).sseCustomerKeyMD5(
+                    Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
+          });
+    }
   }
 
   @Override
-  public InitiateMultipartUploadRequest newMultipartUploadRequest(
+  public CreateMultipartUploadRequest.Builder newMultipartUploadRequestBuilder(
       final String destKey,
       @Nullable final PutObjectOptions options) {
-    // TODO: Temporarily removing metadata,
-    //  will be added back in when this operation is updated.
-    // final ObjectMetadata objectMetadata = newObjectMetadata(-1);
-   // maybeSetMetadata(options, objectMetadata);
-    final InitiateMultipartUploadRequest initiateMPURequest =
-        new InitiateMultipartUploadRequest(getBucket(),
-            destKey);
-    initiateMPURequest.setCannedACL(getCannedACL());
-    if (getStorageClass() != null) {
-      initiateMPURequest.withStorageClass(getStorageClass());
+
+    CreateMultipartUploadRequest.Builder requestBuilder = CreateMultipartUploadRequest.builder();
+
+    if (contentEncoding != null) {
+      requestBuilder.contentEncoding(contentEncoding);
     }
-    setOptionalMultipartUploadRequestParameters(initiateMPURequest);
-    return prepareRequest(initiateMPURequest);
+
+    if (options != null) {
+      requestBuilder.metadata(options.getHeaders());
+    }
+
+    requestBuilder.bucket(getBucket()).key(destKey).acl(cannedACL);
+
+    multipartUploadEncryptionParameters(requestBuilder);
+
+    if (storageClass != null) {
+      requestBuilder.storageClass(storageClass);
+    }
+
+    return prepareRequest(requestBuilder);
   }
 
   @Override
-  public CompleteMultipartUploadRequest newCompleteMultipartUploadRequest(
+  public CompleteMultipartUploadRequest.Builder newCompleteMultipartUploadRequestBuilder(
       String destKey,
       String uploadId,
-      List<PartETag> partETags) {
+      List<CompletedPart> partETags) {
     // a copy of the list is required, so that the AWS SDK doesn't
     // attempt to sort an unmodifiable list.
-    return prepareRequest(new CompleteMultipartUploadRequest(bucket,
-        destKey, uploadId, new ArrayList<>(partETags)));
+    CompleteMultipartUploadRequest.Builder requestBuilder =
+        CompleteMultipartUploadRequest.builder().bucket(bucket).key(destKey).uploadId(uploadId)
+            .multipartUpload(CompletedMultipartUpload.builder().parts(partETags).build());
 
+    return prepareRequest(requestBuilder);
   }
 
   @Override
@@ -489,7 +462,7 @@ public class RequestFactoryImpl implements RequestFactory {
           .sseCustomerKeyMD5(Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
     });
 
-    return prepareV2Request(headObjectRequestBuilder);
+    return prepareRequest(headObjectRequestBuilder);
   }
 
   @Override
@@ -505,26 +478,20 @@ public class RequestFactoryImpl implements RequestFactory {
           .sseCustomerKeyMD5(Md5Utils.md5AsBase64(Base64.getDecoder().decode(base64customerKey)));
     });
 
-    return prepareV2Request(builder);
+    return prepareRequest(builder);
   }
 
   @Override
-  public UploadPartRequest newUploadPartRequest(
+  public UploadPartRequest.Builder newUploadPartRequestBuilder(
       String destKey,
       String uploadId,
       int partNumber,
-      int size,
-      InputStream uploadStream,
-      File sourceFile,
-      long offset) throws PathIOException {
+      long size) throws PathIOException {
     checkNotNull(uploadId);
-    // exactly one source must be set; xor verifies this
-    checkArgument((uploadStream != null) ^ (sourceFile != null),
-        "Data source");
     checkArgument(size >= 0, "Invalid partition size %s", size);
     checkArgument(partNumber > 0,
         "partNumber must be between 1 and %s inclusive, but is %s",
-        DEFAULT_UPLOAD_PART_COUNT_LIMIT, partNumber);
+        multipartPartCountLimit, partNumber);
 
     LOG.debug("Creating part upload request for {} #{} size {}",
         uploadId, partNumber, size);
@@ -534,38 +501,33 @@ public class RequestFactoryImpl implements RequestFactory {
       throw new PathIOException(destKey,
           String.format(pathErrorMsg, partNumber, multipartPartCountLimit));
     }
-    UploadPartRequest request = new UploadPartRequest()
-        .withBucketName(getBucket())
-        .withKey(destKey)
-        .withUploadId(uploadId)
-        .withPartNumber(partNumber)
-        .withPartSize(size);
-    if (uploadStream != null) {
-      // there's an upload stream. Bind to it.
-      request.setInputStream(uploadStream);
-    } else {
-      checkArgument(sourceFile.exists(),
-          "Source file does not exist: %s", sourceFile);
-      checkArgument(sourceFile.isFile(),
-          "Source is not a file: %s", sourceFile);
-      checkArgument(offset >= 0, "Invalid offset %s", offset);
-      long length = sourceFile.length();
-      checkArgument(offset == 0 || offset < length,
-          "Offset %s beyond length of file %s", offset, length);
-      request.setFile(sourceFile);
-      request.setFileOffset(offset);
-    }
-    setOptionalUploadPartRequestParameters(request);
-    return prepareRequest(request);
+    UploadPartRequest.Builder builder = UploadPartRequest.builder()
+        .bucket(getBucket())
+        .key(destKey)
+        .uploadId(uploadId)
+        .partNumber(partNumber)
+        .contentLength(size);
+    uploadPartEncryptionParameters(builder);
+    return prepareRequest(builder);
   }
 
   @Override
-  public SelectObjectContentRequest newSelectRequest(String key) {
-    SelectObjectContentRequest request = new SelectObjectContentRequest();
-    request.setBucketName(bucket);
-    request.setKey(key);
-    generateSSECustomerKey().ifPresent(request::setSSECustomerKey);
-    return prepareRequest(request);
+  public SelectObjectContentRequest.Builder newSelectRequestBuilder(String key) {
+    SelectObjectContentRequest.Builder requestBuilder =
+        SelectObjectContentRequest.builder()
+            .bucket(bucket)
+            .key(key);
+
+      EncryptionSecretOperations.getSSECustomerKey(encryptionSecrets)
+          .ifPresent(base64customerKey -> {
+            requestBuilder
+                .sseCustomerAlgorithm(ServerSideEncryption.AES256.name())
+                .sseCustomerKey(base64customerKey)
+                .sseCustomerKeyMD5(Md5Utils.md5AsBase64(
+                    Base64.getDecoder().decode(base64customerKey)));
+          });
+
+    return prepareRequest(requestBuilder);
   }
 
   @Override
@@ -581,13 +543,7 @@ public class RequestFactoryImpl implements RequestFactory {
       requestBuilder.delimiter(delimiter);
     }
 
-    return prepareV2Request(requestBuilder);
-  }
-
-  @Override
-  public ListNextBatchOfObjectsRequest newListNextBatchOfObjectsRequest(
-      ObjectListing prev) {
-    return prepareRequest(new ListNextBatchOfObjectsRequest(prev));
+    return prepareRequest(requestBuilder);
   }
 
   @Override
@@ -605,21 +561,21 @@ public class RequestFactoryImpl implements RequestFactory {
       requestBuilder.delimiter(delimiter);
     }
 
-    return prepareV2Request(requestBuilder);
+    return prepareRequest(requestBuilder);
   }
 
   @Override
-  public DeleteObjectRequest newDeleteObjectRequest(String key) {
-    return prepareRequest(new DeleteObjectRequest(bucket, key));
+  public DeleteObjectRequest.Builder newDeleteObjectRequestBuilder(String key) {
+    return prepareRequest(DeleteObjectRequest.builder().bucket(bucket).key(key));
   }
 
   @Override
-  public DeleteObjectsRequest newBulkDeleteRequest(
-          List<DeleteObjectsRequest.KeyVersion> keysToDelete) {
-    return prepareRequest(
-        new DeleteObjectsRequest(bucket)
-            .withKeys(keysToDelete)
-            .withQuiet(true));
+  public DeleteObjectsRequest.Builder newBulkDeleteRequestBuilder(
+          List<ObjectIdentifier> keysToDelete) {
+    return prepareRequest(DeleteObjectsRequest
+        .builder()
+        .bucket(bucket)
+        .delete(d -> d.objects(keysToDelete).quiet(true)));
   }
 
   @Override
@@ -653,7 +609,7 @@ public class RequestFactoryImpl implements RequestFactory {
     /**
      * ACL For new objects.
      */
-    private CannedAccessControlList cannedACL = null;
+    private ObjectCannedACL cannedACL = null;
 
     /** Content Encoding. */
     private String contentEncoding;
@@ -731,7 +687,7 @@ public class RequestFactoryImpl implements RequestFactory {
      * @return the builder
      */
     public RequestFactoryBuilder withCannedACL(
-        final CannedAccessControlList value) {
+        final ObjectCannedACL value) {
       cannedACL = value;
       return this;
     }
@@ -771,11 +727,9 @@ public class RequestFactoryImpl implements RequestFactory {
 
     /**
      * Post-creation preparation of AWS request.
-     * @param t request
-     * @param <T> request type.
-     * @return prepared entry.
+     * @param t request builder
      */
     @Retries.OnceRaw
-    <T extends AmazonWebServiceRequest> T prepareRequest(T t);
+    void prepareRequest(SdkRequest.Builder t);
   }
 }

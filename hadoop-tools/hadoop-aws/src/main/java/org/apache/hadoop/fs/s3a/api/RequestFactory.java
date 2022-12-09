@@ -19,39 +19,32 @@
 package org.apache.hadoop.fs.s3a.api;
 
 import javax.annotation.Nullable;
-import java.io.File;
-import java.io.InputStream;
 import java.util.List;
-import java.util.Optional;
-
-import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
-import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.s3.model.DeleteObjectRequest;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
-import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
-import com.amazonaws.services.s3.model.ListNextBatchOfObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
-import com.amazonaws.services.s3.model.SSECustomerKey;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import com.amazonaws.services.s3.model.StorageClass;
-import com.amazonaws.services.s3.model.UploadPartRequest;
 
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.s3a.S3AEncryptionMethods;
 import org.apache.hadoop.fs.s3a.auth.delegation.EncryptionSecrets;
 import org.apache.hadoop.fs.s3a.impl.PutObjectOptions;
 
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListMultipartUploadsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
+import software.amazon.awssdk.services.s3.model.StorageClass;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
 /**
  * Factory for S3 objects.
@@ -80,22 +73,7 @@ public interface RequestFactory {
    * Get the canned ACL of this FS.
    * @return an ACL, if any
    */
-  CannedAccessControlList getCannedACL();
-
-  /**
-   * Create the AWS SDK structure used to configure SSE,
-   * if the encryption secrets contain the information/settings for this.
-   * @return an optional set of KMS Key settings
-   */
-  Optional<SSEAwsKeyManagementParams> generateSSEAwsKeyParams();
-
-  /**
-   * Create the SSE-C structure for the AWS SDK, if the encryption secrets
-   * contain the information/settings for this.
-   * This will contain a secret extracted from the bucket/configuration.
-   * @return an optional customer key.
-   */
-  Optional<SSECustomerKey> generateSSECustomerKey();
+  ObjectCannedACL getCannedACL();
 
   /**
    * Get the encryption algorithm of this endpoint.
@@ -156,18 +134,18 @@ public interface RequestFactory {
   /**
    * List all multipart uploads under a prefix.
    * @param prefix prefix to list under
-   * @return the request.
+   * @return the request builder.
    */
-  ListMultipartUploadsRequest newListMultipartUploadsRequest(
+  ListMultipartUploadsRequest.Builder newListMultipartUploadsRequestBuilder(
       @Nullable String prefix);
 
   /**
    * Abort a multipart upload.
    * @param destKey destination object key
    * @param uploadId ID of initiated upload
-   * @return the request.
+   * @return the request builder.
    */
-  AbortMultipartUploadRequest newAbortMultipartUploadRequest(
+  AbortMultipartUploadRequest.Builder newAbortMultipartUploadRequestBuilder(
       String destKey,
       String uploadId);
 
@@ -175,9 +153,9 @@ public interface RequestFactory {
    * Start a multipart upload.
    * @param destKey destination object key
    * @param options options for the request
-   * @return the request.
+   * @return the request builder.
    */
-  InitiateMultipartUploadRequest newMultipartUploadRequest(
+  CreateMultipartUploadRequest.Builder newMultipartUploadRequestBuilder(
       String destKey,
       @Nullable PutObjectOptions options);
 
@@ -186,12 +164,12 @@ public interface RequestFactory {
    * @param destKey destination object key
    * @param uploadId ID of initiated upload
    * @param partETags ordered list of etags
-   * @return the request.
+   * @return the request builder.
    */
-  CompleteMultipartUploadRequest newCompleteMultipartUploadRequest(
+  CompleteMultipartUploadRequest.Builder newCompleteMultipartUploadRequestBuilder(
       String destKey,
       String uploadId,
-      List<PartETag> partETags);
+      List<CompletedPart> partETags);
 
   /**
    * Create a HEAD request builder.
@@ -209,38 +187,28 @@ public interface RequestFactory {
   GetObjectRequest.Builder newGetObjectRequestBuilder(String key);
 
   /**
-   * Create and initialize a part request of a multipart upload.
-   * Exactly one of: {@code uploadStream} or {@code sourceFile}
-   * must be specified.
-   * A subset of the file may be posted, by providing the starting point
-   * in {@code offset} and a length of block in {@code size} equal to
-   * or less than the remaining bytes.
-   * @param destKey destination key of ongoing operation
-   * @param uploadId ID of ongoing upload
-   * @param partNumber current part number of the upload
-   * @param size amount of data
-   * @param uploadStream source of data to upload
-   * @param sourceFile optional source file.
-   * @param offset offset in file to start reading.
-   * @return the request.
+   * Create and initialize a part request builder of a multipart upload.
+   *
+   * @param destKey      destination key of ongoing operation
+   * @param uploadId     ID of ongoing upload
+   * @param partNumber   current part number of the upload
+   * @param size         amount of data
+   * @return the request builder.
    * @throws PathIOException if the part number is out of range.
    */
-  UploadPartRequest newUploadPartRequest(
+  UploadPartRequest.Builder newUploadPartRequestBuilder(
       String destKey,
       String uploadId,
       int partNumber,
-      int size,
-      InputStream uploadStream,
-      File sourceFile,
-      long offset) throws PathIOException;
+      long size) throws PathIOException;
 
   /**
-   * Create a S3 Select request for the destination object.
+   * Create a S3 Select request builder for the destination object.
    * This does not build the query.
    * @param key object key
-   * @return the request
+   * @return the request builder
    */
-  SelectObjectContentRequest newSelectRequest(String key);
+  SelectObjectContentRequest.Builder newSelectRequestBuilder(String key);
 
   /**
    * Create the (legacy) V1 list request builder.
@@ -252,16 +220,6 @@ public interface RequestFactory {
   ListObjectsRequest.Builder newListObjectsV1RequestBuilder(String key,
       String delimiter,
       int maxKeys);
-
-  /**
-   * Create the next V1 page list request, following
-   * on from the previous response.
-   * @param prev previous response
-   * @return the request
-   */
-
-  ListNextBatchOfObjectsRequest newListNextBatchOfObjectsRequest(
-      ObjectListing prev);
 
   /**
    * Create a V2 list request builder.
@@ -276,18 +234,18 @@ public interface RequestFactory {
       int maxKeys);
 
   /**
-   * Create a request to delete a single object.
+   * Create a request builder to delete a single object.
    * @param key object to delete
-   * @return the request
+   * @return the request builder.
    */
-  DeleteObjectRequest newDeleteObjectRequest(String key);
+  DeleteObjectRequest.Builder newDeleteObjectRequestBuilder(String key);
 
   /**
-   * Bulk delete request.
+   * Create a request builder to delete objects in bulk.
    * @param keysToDelete list of keys to delete.
-   * @return the request
+   * @return the request builder.
    */
-  DeleteObjectsRequest newBulkDeleteRequest(
-          List<DeleteObjectsRequest.KeyVersion> keysToDelete);
+  DeleteObjectsRequest.Builder newBulkDeleteRequestBuilder(
+          List<ObjectIdentifier> keysToDelete);
 
 }

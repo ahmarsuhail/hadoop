@@ -51,7 +51,7 @@ public class ProgressableProgressListener implements TransferListener {
   }
 
   @Override
-  public void  transferInitiated(TransferListener.Context.TransferInitiated context) {
+  public void transferInitiated(TransferListener.Context.TransferInitiated context) {
     fs.incrementWriteOperations();
   }
 

@@ -18,20 +18,23 @@
 
 package org.apache.hadoop.fs.s3a;
 
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
-
 /**
- * A 500 response came back from a service.
- * This is considered <i>probably</i> retriable, That is, we assume
- * <ol>
- *   <li>whatever error happened in the service itself to have happened
- *    before the infrastructure committed the operation.</li>
- *    <li>Nothing else got through either.</li>
- * </ol>
+ * Enum to map AWS SDK V1 Acl values to SDK V2.
  */
-public class AWSStatus500Exception extends AWSServiceIOException {
-  public AWSStatus500Exception(String operation,
-      AwsServiceException cause) {
-    super(operation, cause);
+public enum AWSCannedACL {
+  Private("PRIVATE"),
+  PublicRead("PUBLIC_READ"),
+  PublicReadWrite("PUBLIC_READ_WRITE"),
+  AuthenticatedRead("AUTHENTICATED_READ"),
+  AwsExecRead("AWS_EXEC_READ"),
+  BucketOwnerRead("BUCKET_OWNER_READ"),
+  BucketOwnerFullControl("BUCKET_OWNER_FULL_CONTROL");
+
+  private final String value;
+
+  AWSCannedACL(String value){
+    this.value = value;
   }
+
+  public String toString() { return this.value; }
 }
