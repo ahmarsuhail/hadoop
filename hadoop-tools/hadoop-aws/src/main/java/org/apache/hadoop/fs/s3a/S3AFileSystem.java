@@ -133,6 +133,7 @@ import org.apache.hadoop.fs.s3a.impl.DeleteOperation;
 import org.apache.hadoop.fs.s3a.impl.DirectoryPolicy;
 import org.apache.hadoop.fs.s3a.impl.DirectoryPolicyImpl;
 import org.apache.hadoop.fs.s3a.impl.GetContentSummaryOperation;
+import org.apache.hadoop.fs.s3a.impl.GetS3RegionOperation;
 import org.apache.hadoop.fs.s3a.impl.HeaderProcessing;
 import org.apache.hadoop.fs.s3a.impl.InternalConstants;
 import org.apache.hadoop.fs.s3a.impl.ListingOperationCallbacks;
@@ -957,7 +958,11 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
         ? conf.getTrimmed(AWS_REGION)
         : accessPoint.getRegion();
 
-    Region region = getS3Region(configuredRegion);
+    Region region = new GetS3RegionOperation(
+        createStoreContext(),
+        configuredRegion,
+        bucket,
+        credentials).execute();
 
     S3ClientFactory.S3ClientCreationParameters parameters =
         new S3ClientFactory.S3ClientCreationParameters()
@@ -2688,6 +2693,12 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
       ChangeTracker changeTracker,
       Invoker changeInvoker,
       String operation) throws IOException {
+
+    // skip remote probe for the root.
+    if (key.isEmpty()) {
+      return HeadObjectResponse.builder().build();
+    }
+
     HeadObjectResponse response = changeInvoker.retryUntranslated("GET " + key, true,
         () -> {
           HeadObjectRequest.Builder requestBuilder =
