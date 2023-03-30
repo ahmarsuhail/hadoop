@@ -31,6 +31,7 @@ import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.internal.crt.S3CrtAsyncClient;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -80,6 +81,10 @@ public interface S3ClientFactory {
    * @throws IOException on any IO problem
    */
   S3AsyncClient createS3AsyncClient(URI uri,
+      S3ClientCreationParameters parameters) throws IOException;
+
+
+  S3AsyncClient createS3CrtAsyncClient(URI uri,
       S3ClientCreationParameters parameters) throws IOException;
 
   /**

@@ -107,8 +107,21 @@ public class DefaultS3ClientFactory extends Configured
   }
 
   @Override
-  public S3TransferManager createS3TransferManager(final S3AsyncClient s3AsyncClient) {
+  public S3AsyncClient createS3CrtAsyncClient(final URI uri,
+      final S3ClientCreationParameters parameters) {
 
+    Configuration conf = getConf();
+    String bucket = uri.getHost();
+
+    return S3AsyncClient.crtBuilder()
+        .credentialsProvider(parameters.getCredentialSet())
+        .region(parameters.getRegion())
+        .targetThroughputInGbps(20.0)
+        .build();
+  }
+
+  @Override
+  public S3TransferManager createS3TransferManager(final S3AsyncClient s3AsyncClient) {
     return S3TransferManager.builder()
         .s3Client(s3AsyncClient)
         .build();

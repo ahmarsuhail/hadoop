@@ -604,6 +604,8 @@ public final class Constants {
 
   public static final String USER_AGENT_PREFIX = "fs.s3a.user.agent.prefix";
 
+  public static final String S3_CRT_ENABLED = "fs.s3a.crt.enabled";
+
   /**
    * Paths considered "authoritative".
    * When S3guard was supported, this skipped checks to s3 on directory listings.

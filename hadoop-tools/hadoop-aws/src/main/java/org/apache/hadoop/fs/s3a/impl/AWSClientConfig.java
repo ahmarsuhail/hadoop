@@ -149,6 +149,28 @@ public final class AWSClientConfig {
     return httpClientBuilder;
   }
 
+//  public static S3CrtHttpConfiguration.Builder createCrtHttpClientBuilder(Configuration conf) {
+//
+//    S3CrtHttpConfiguration.Builder httpClientBuilder = S3CrtHttpConfiguration.builder();
+//
+//    int connectionEstablishTimeout =
+//        S3AUtils.intOption(conf, ESTABLISH_TIMEOUT, DEFAULT_ESTABLISH_TIMEOUT, 0);
+//
+//    httpClientBuilder.connectionTimeout(Duration.ofSeconds(connectionEstablishTimeout));
+//
+//    return httpClientBuilder;
+//
+//  }
+
+//  public static S3CrtProxyConfiguration.Builder createCrtProxyConfiguration(Configuration conf) {
+//    S3CrtProxyConfiguration.Builder proxyConfigBuilder = S3CrtProxyConfiguration.builder();
+//
+//
+//
+//  }
+
+
+
   /**
    * Configures the retry policy.
    *

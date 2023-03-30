@@ -57,6 +57,7 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.internal.crt.S3CrtAsyncClient;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.GetBucketLocationRequest;
@@ -975,7 +976,15 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
 
     S3ClientFactory clientFactory = ReflectionUtils.newInstance(s3ClientFactoryClass, conf);
     s3Client = clientFactory.createS3Client(getUri(), parameters);
-    s3AsyncClient = clientFactory.createS3AsyncClient(getUri(), parameters);
+
+    Boolean crtEnabled = getConf().getBoolean(S3_CRT_ENABLED, false);
+
+    if (crtEnabled) {
+      s3AsyncClient = clientFactory.createS3CrtAsyncClient(getUri(), parameters);
+    } else {
+      s3AsyncClient = clientFactory.createS3AsyncClient(getUri(), parameters);
+    }
+
     transferManager =  clientFactory.createS3TransferManager(s3AsyncClient);
   }
 

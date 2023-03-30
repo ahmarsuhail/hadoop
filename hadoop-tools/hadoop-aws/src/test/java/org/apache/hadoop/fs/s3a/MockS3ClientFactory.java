@@ -20,12 +20,14 @@ package org.apache.hadoop.fs.s3a;
 
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.internal.crt.S3CrtAsyncClient;
 import software.amazon.awssdk.services.s3.model.GetBucketLocationRequest;
 import software.amazon.awssdk.services.s3.model.GetBucketLocationResponse;
 import software.amazon.awssdk.services.s3.model.ListMultipartUploadsRequest;
@@ -57,6 +59,13 @@ public class MockS3ClientFactory implements S3ClientFactory {
 
   @Override
   public S3AsyncClient createS3AsyncClient(URI uri, final S3ClientCreationParameters parameters) {
+    S3AsyncClient s3 = mock(S3AsyncClient.class);
+    return s3;
+  }
+
+  @Override
+  public S3AsyncClient createS3CrtAsyncClient(URI uri, S3ClientCreationParameters parameters)
+      throws IOException {
     S3AsyncClient s3 = mock(S3AsyncClient.class);
     return s3;
   }
