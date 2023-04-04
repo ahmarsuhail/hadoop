@@ -104,6 +104,12 @@ class MockS3ARemoteObject extends S3ARemoteObject {
       }
 
       @Override
+      public ResponseInputStream<GetObjectResponse> getObjectAsync(
+          GetObjectRequest request) {
+        return null;
+      }
+
+      @Override
       public <T> CompletableFuture<T> submit(CallableRaisingIOE<T> operation) {
         return null;
       }

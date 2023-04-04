@@ -148,6 +148,8 @@ public class S3ARemoteObjectReader implements Closeable {
 
     ResponseInputStream<GetObjectResponse> inputStream =
         remoteObject.openForRead(offset, readSize);
+
+
     int numRemainingBytes = readSize;
     byte[] bytes = new byte[READ_BUFFER_SIZE];
 

@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -1664,6 +1665,14 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     return new InputStreamCallbacksImpl(auditSpan);
   }
 
+  public S3AsyncClient getS3AsyncClient() {
+    return s3AsyncClient;
+  }
+
+  public S3Client getS3Client() {
+    return s3Client;
+  }
+
   /**
    * Operations needed by S3AInputStream to read data.
    */
@@ -1704,6 +1713,17 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
       // active the audit span used for the operation
       try (AuditSpan span = auditSpan.activate()) {
         return s3Client.getObject(request);
+      }
+    }
+
+    @Override
+    public ResponseInputStream<GetObjectResponse> getObjectAsync(GetObjectRequest request) {
+      // active the audit span used for the operation
+      try (AuditSpan span = auditSpan.activate()) {
+        CompletableFuture<ResponseInputStream<GetObjectResponse>> responseFuture
+        = s3AsyncClient.getObject(request, AsyncResponseTransformer.toBlockingInputStream());
+
+        return responseFuture.join();
       }
     }
 

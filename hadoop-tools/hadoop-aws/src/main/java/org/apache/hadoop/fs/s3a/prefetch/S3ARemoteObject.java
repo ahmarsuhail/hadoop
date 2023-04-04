@@ -197,7 +197,8 @@ public class S3ARemoteObject {
     ResponseInputStream<GetObjectResponse> object = null;
 
     try {
-      object = Invoker.once(operation, uri, () -> client.getObject(request));
+      // object = Invoker.once(operation, uri, () -> client.getObject(request));
+      object = Invoker.once(operation, uri, () -> client.getObjectAsync(request));
     } catch (IOException e) {
       tracker.failed();
       throw e;

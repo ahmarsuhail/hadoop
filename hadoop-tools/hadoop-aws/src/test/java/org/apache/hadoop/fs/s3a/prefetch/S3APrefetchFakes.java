@@ -192,6 +192,10 @@ public final class S3APrefetchFakes {
         return responseInputStream;
       }
 
+      public ResponseInputStream<GetObjectResponse> getObjectAsync(GetObjectRequest request) {
+        return responseInputStream;
+      }
+
       @Override
       public <T> CompletableFuture<T> submit(CallableRaisingIOE<T> operation) {
         return null;

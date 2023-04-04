@@ -164,6 +164,12 @@ public class TestS3AInputStreamRetry extends AbstractS3AMockTest {
         return responseInputStreams[min(mockedS3ObjectIndex, responseInputStreams.length) - 1];
       }
 
+
+      @Override
+      public ResponseInputStream<GetObjectResponse> getObjectAsync(GetObjectRequest request) {
+        return responseInputStreams[min(mockedS3ObjectIndex, responseInputStreams.length) - 1];
+      }
+
       @Override
       public GetObjectRequest.Builder newGetRequestBuilder(String key) {
         return GetObjectRequest.builder().bucket(fs.getBucket()).key(key);

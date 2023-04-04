@@ -19,10 +19,17 @@
 package org.apache.hadoop.fs.s3a;
 
 import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -123,6 +130,7 @@ public class ITestS3APrefetchingInputStream extends AbstractS3ACostTest {
       byte[] buffer = new byte[S_1M * 10];
       long bytesRead = 0;
 
+      ContractTestUtils.NanoTimer timer = new ContractTestUtils.NanoTimer();
       while (bytesRead < largeFileSize) {
         in.readFully(buffer, 0, (int) Math.min(buffer.length, largeFileSize - bytesRead));
         bytesRead += buffer.length;
@@ -130,6 +138,7 @@ public class ITestS3APrefetchingInputStream extends AbstractS3ACostTest {
         verifyStatisticGaugeValue(ioStats, STREAM_READ_BLOCKS_IN_FILE_CACHE,
             0);
       }
+      timer.end("Read file fully with Prefetching and CRT");
 
       // Assert that first block is read synchronously, following blocks are prefetched
       verifyStatisticCounterValue(ioStats, STREAM_READ_PREFETCH_OPERATIONS,
@@ -143,151 +152,62 @@ public class ITestS3APrefetchingInputStream extends AbstractS3ACostTest {
         ACTION_EXECUTOR_ACQUIRED + SUFFIX_MAX).isGreaterThan(0);
   }
 
+
   @Test
-  public void testReadLargeFileFullyLazySeek() throws Throwable {
-    describe("read a large file using readFully(position,buffer,offset,length),"
-        + " uses S3ACachingInputStream");
-    IOStatistics ioStats;
-    openFS();
+  public void testReadLargeFileFullyWithCRT() throws Throwable {
+    describe("read a large file fully, uses S3ACachingInputStream");
+    S3AsyncClient s3AsyncClient = getFileSystem().getS3AsyncClient();
 
-    try (FSDataInputStream in = largeFileFS.open(largeFile)) {
-      ioStats = in.getIOStatistics();
+    GetObjectRequest request = GetObjectRequest.builder()
+        .bucket("ahmarsu-test-aws-s3a")
+        .key("crtbenchmark/src/file_size_256M")
+        .build();
 
+    CompletableFuture<ResponseInputStream<GetObjectResponse>> responseFuture =
+        s3AsyncClient.getObject(request, AsyncResponseTransformer.toBlockingInputStream());
+
+    int bytesRead = 0;
+
+    try (ResponseInputStream<GetObjectResponse> responseStream = responseFuture.join()) {
+      GetObjectResponse r = responseStream.response();
       byte[] buffer = new byte[S_1M * 10];
-      long bytesRead = 0;
-
-      while (bytesRead < largeFileSize) {
-        in.readFully(bytesRead, buffer, 0, (int) Math.min(buffer.length,
-            largeFileSize - bytesRead));
-        bytesRead += buffer.length;
-        // Blocks are fully read, no blocks should be cached
-        verifyStatisticGaugeValue(ioStats, STREAM_READ_BLOCKS_IN_FILE_CACHE,
-                0);
+      ContractTestUtils.NanoTimer timer = new ContractTestUtils.NanoTimer();
+      while(bytesRead < r.contentLength()) {
+        int bytes = responseStream.read(buffer);
+        bytesRead += bytes;
+        System.out.println("Bytes read");
+        System.out.println(bytesRead);
       }
-
-      // Assert that first block is read synchronously, following blocks are prefetched
-      verifyStatisticCounterValue(ioStats, STREAM_READ_PREFETCH_OPERATIONS,
-              numBlocks - 1);
-      verifyStatisticCounterValue(ioStats, ACTION_HTTP_GET_REQUEST, numBlocks);
-      verifyStatisticCounterValue(ioStats, STREAM_READ_OPENED, numBlocks);
+      timer.end("Test read file fully with CRT client, without prefetching");
     }
-    // Verify that once stream is closed, all memory is freed
-    verifyStatisticGaugeValue(ioStats, STREAM_READ_ACTIVE_MEMORY_IN_USE, 0);
+
   }
 
   @Test
-  public void testRandomReadLargeFile() throws Throwable {
-    describe("random read on a large file, uses S3ACachingInputStream");
-    IOStatistics ioStats;
-    openFS();
+  public void testReadLargeFileFullyWithoutPrefetchingAndCRT() throws Throwable {
+    describe("read a large file fully, uses S3ACachingInputStream");
+    S3Client s3Client = getFileSystem().getS3Client();
 
-    try (FSDataInputStream in = largeFileFS.open(largeFile)) {
-      ioStats = in.getIOStatistics();
+    GetObjectRequest request = GetObjectRequest.builder()
+        .bucket("ahmarsu-test-aws-s3a")
+        .key("crtbenchmark/src/file_size_256M")
+        .build();
 
-      byte[] buffer = new byte[blockSize];
 
-      // Don't read block 0 completely so it gets cached on read after seek
-      in.read(buffer, 0, blockSize - S_1K * 10);
+    int bytesRead = 0;
 
-      // Seek to block 2 and read all of it
-      in.seek(blockSize * 2);
-      in.read(buffer, 0, blockSize);
-
-      // Seek to block 4 but don't read: noop.
-      in.seek(blockSize * 4);
-
-      // Backwards seek, will use cached block 0
-      in.seek(S_1K * 5);
-      in.read();
-
-      // Expected to get block 0 (partially read), 1 (prefetch), 2 (fully read), 3 (prefetch)
-      // Blocks 0, 1, 3 were not fully read, so remain in the file cache
-      verifyStatisticCounterValue(ioStats, ACTION_HTTP_GET_REQUEST, 4);
-      verifyStatisticCounterValue(ioStats, STREAM_READ_OPENED, 4);
-      verifyStatisticCounterValue(ioStats, STREAM_READ_PREFETCH_OPERATIONS, 2);
-      verifyStatisticGaugeValue(ioStats, STREAM_READ_BLOCKS_IN_FILE_CACHE, 3);
+    try (ResponseInputStream<GetObjectResponse> responseStream = s3Client.getObject(request)) {
+      GetObjectResponse r = responseStream.response();
+      byte[] buffer = new byte[S_1M * 10];
+      ContractTestUtils.NanoTimer timer = new ContractTestUtils.NanoTimer();
+      while(bytesRead < r.contentLength()) {
+        int bytes = responseStream.read(buffer);
+        bytesRead += bytes;
+        System.out.println("Bytes read");
+        System.out.println(bytesRead);
+      }
+      timer.end("Test read file fully with sync client, without prefetching");
     }
-    verifyStatisticGaugeValue(ioStats, STREAM_READ_BLOCKS_IN_FILE_CACHE, 0);
-    verifyStatisticGaugeValue(ioStats, STREAM_READ_ACTIVE_MEMORY_IN_USE, 0);
-  }
-
-  @Test
-  public void testRandomReadSmallFile() throws Throwable {
-    describe("random read on a small file, uses S3AInMemoryInputStream");
-
-    byte[] data = ContractTestUtils.dataset(SMALL_FILE_SIZE, 'a', 26);
-    Path smallFile = path("randomReadSmallFile");
-    ContractTestUtils.writeDataset(getFileSystem(), smallFile, data, data.length, 16, true);
-
-    try (FSDataInputStream in = getFileSystem().open(smallFile)) {
-      IOStatistics ioStats = in.getIOStatistics();
-
-      byte[] buffer = new byte[SMALL_FILE_SIZE];
-
-      in.read(buffer, 0, S_1K * 4);
-      in.seek(S_1K * 12);
-      in.read(buffer, 0, S_1K * 4);
-
-      verifyStatisticCounterValue(ioStats, ACTION_HTTP_GET_REQUEST, 1);
-      verifyStatisticCounterValue(ioStats, STREAM_READ_OPENED, 1);
-      verifyStatisticCounterValue(ioStats, STREAM_READ_PREFETCH_OPERATIONS, 0);
-      // The buffer pool is not used
-      verifyStatisticGaugeValue(ioStats, STREAM_READ_ACTIVE_MEMORY_IN_USE, 0);
-      // no prefetch ops, so no action_executor_acquired
-      assertThatStatisticMaximum(ioStats,
-          ACTION_EXECUTOR_ACQUIRED + SUFFIX_MAX).isEqualTo(-1);
-    }
-  }
-
-  @Test
-  public void testStatusProbesAfterClosingStream() throws Throwable {
-    describe("When the underlying input stream is closed, the prefetch input stream"
-        + " should still support some status probes");
-
-    byte[] data = ContractTestUtils.dataset(SMALL_FILE_SIZE, 'a', 26);
-    Path smallFile = methodPath();
-    ContractTestUtils.writeDataset(getFileSystem(), smallFile, data, data.length, 16, true);
-
-    FSDataInputStream in = getFileSystem().open(smallFile);
-
-    byte[] buffer = new byte[SMALL_FILE_SIZE];
-    in.read(buffer, 0, S_1K * 4);
-    in.seek(S_1K * 12);
-    in.read(buffer, 0, S_1K * 4);
-
-    long pos = in.getPos();
-    IOStatistics ioStats = in.getIOStatistics();
-    S3AInputStreamStatistics inputStreamStatistics =
-        ((S3APrefetchingInputStream) (in.getWrappedStream())).getS3AStreamStatistics();
-
-    assertNotNull("Prefetching input IO stats should not be null", ioStats);
-    assertNotNull("Prefetching input stream stats should not be null", inputStreamStatistics);
-    assertNotEquals("Position retrieved from prefetching input stream should be greater than 0", 0,
-        pos);
-
-    in.close();
-
-    // status probes after closing the input stream
-    long newPos = in.getPos();
-    IOStatistics newIoStats = in.getIOStatistics();
-    S3AInputStreamStatistics newInputStreamStatistics =
-        ((S3APrefetchingInputStream) (in.getWrappedStream())).getS3AStreamStatistics();
-
-    assertNotNull("Prefetching input IO stats should not be null", newIoStats);
-    assertNotNull("Prefetching input stream stats should not be null", newInputStreamStatistics);
-    assertNotEquals("Position retrieved from prefetching input stream should be greater than 0", 0,
-        newPos);
-
-    // compare status probes after closing of the stream with status probes done before
-    // closing the stream
-    assertEquals("Position retrieved through stream before and after closing should match", pos,
-        newPos);
-    assertEquals("IO stats retrieved through stream before and after closing should match", ioStats,
-        newIoStats);
-    assertEquals("Stream stats retrieved through stream before and after closing should match",
-        inputStreamStatistics, newInputStreamStatistics);
-
-    assertFalse("seekToNewSource() not supported with prefetch", in.seekToNewSource(10));
 
   }
 

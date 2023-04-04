@@ -389,7 +389,7 @@ public final class S3ATestUtils {
    */
   public static String getCSVTestFile(Configuration conf) {
     String csvFile = conf
-        .getTrimmed(KEY_CSVTEST_FILE, DEFAULT_CSVTEST_FILE);
+        .getTrimmed(KEY_CSVTEST_FILE, "s3a://ahmarsu-test-aws-s3a/crtbenchmark/src/file_size_256M");
     Assume.assumeTrue("CSV test file is not the default",
         isNotEmpty(csvFile));
     return csvFile;
