@@ -53,6 +53,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.regions.Region;
@@ -981,8 +982,10 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     Boolean crtEnabled = getConf().getBoolean(S3_CRT_ENABLED, false);
 
     if (crtEnabled) {
+      System.out.println("CRTTTT");
       s3AsyncClient = clientFactory.createS3CrtAsyncClient(getUri(), parameters);
     } else {
+      System.out.println("JAVAAAA");
       s3AsyncClient = clientFactory.createS3AsyncClient(getUri(), parameters);
     }
 
@@ -3120,6 +3123,21 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     incrementPutStartStatistics(len);
     try {
       UploadPartResponse uploadPartResponse = s3Client.uploadPart(request, body);
+      incrementPutCompletedStatistics(true, len);
+      return uploadPartResponse;
+    } catch (AwsServiceException e) {
+      incrementPutCompletedStatistics(false, len);
+      throw e;
+    }
+  }
+
+  @Retries.OnceRaw
+  UploadPartResponse uploadPartAsync(UploadPartRequest request, AsyncRequestBody body)
+      throws AwsServiceException {
+    long len = request.contentLength();
+    incrementPutStartStatistics(len);
+    try {
+      UploadPartResponse uploadPartResponse = s3AsyncClient.uploadPart(request, body).join();
       incrementPutCompletedStatistics(true, len);
       return uploadPartResponse;
     } catch (AwsServiceException e) {

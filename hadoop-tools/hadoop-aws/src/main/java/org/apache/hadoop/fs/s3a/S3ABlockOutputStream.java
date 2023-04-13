@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
@@ -847,11 +848,16 @@ class S3ABlockOutputStream extends OutputStream implements
       final UploadPartRequest request;
       final S3ADataBlocks.BlockUploadData uploadData;
       final RequestBody requestBody;
+      final AsyncRequestBody asyncRequestBody;
       try {
         uploadData = block.startUpload();
         requestBody = uploadData.hasFile()
             ? RequestBody.fromFile(uploadData.getFile())
             : RequestBody.fromInputStream(uploadData.getUploadStream(), size);
+
+        asyncRequestBody = uploadData.hasFile()
+            ? AsyncRequestBody.fromFile(uploadData.getFile())
+            : AsyncRequestBody.fromInputStream(uploadData.getUploadStream(), (long) size, executorService);
 
         request = writeOperationHelper.newUploadPartRequestBuilder(
             key,
@@ -884,8 +890,12 @@ class S3ABlockOutputStream extends OutputStream implements
 
               progressCallback.progressChanged(TRANSFER_PART_STARTED_EVENT);
 
+//              UploadPartResponse response = writeOperationHelper
+//                  .uploadPart(request, requestBody);
+
               UploadPartResponse response = writeOperationHelper
-                  .uploadPart(request, requestBody);
+                  .uploadPartAsync(request, asyncRequestBody);
+
               LOG.debug("Completed upload of {} to part {}",
                   block, response.eTag());
               LOG.debug("Stream statistics of {}", statistics);

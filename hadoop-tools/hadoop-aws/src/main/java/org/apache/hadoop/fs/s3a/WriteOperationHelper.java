@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadResponse;
@@ -624,6 +625,16 @@ public class WriteOperationHelper implements WriteOperations {
         true,
         withinAuditSpan(getAuditSpan(),
             () -> owner.uploadPart(request, body)));
+  }
+
+  public UploadPartResponse uploadPartAsync(UploadPartRequest request, AsyncRequestBody body)
+      throws IOException {
+    return retry("upload part #" + request.partNumber()
+            + " upload ID " + request.uploadId(),
+        request.key(),
+        true,
+        withinAuditSpan(getAuditSpan(),
+            () -> owner.uploadPartAsync(request, body)));
   }
 
   /**
