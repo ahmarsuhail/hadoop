@@ -19,9 +19,13 @@
 package org.apache.hadoop.fs.s3a;
 
 import java.net.URI;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.ResponseInputStream;
@@ -45,6 +49,7 @@ import org.apache.hadoop.fs.statistics.IOStatistics;
 import static org.apache.hadoop.fs.s3a.Constants.PREFETCH_BLOCK_DEFAULT_SIZE;
 import static org.apache.hadoop.fs.s3a.Constants.PREFETCH_BLOCK_SIZE_KEY;
 import static org.apache.hadoop.fs.s3a.Constants.PREFETCH_ENABLED_KEY;
+import static org.apache.hadoop.fs.s3a.Constants.S3_CRT_ENABLED;
 import static org.apache.hadoop.fs.statistics.IOStatisticAssertions.assertThatStatisticMaximum;
 import static org.apache.hadoop.fs.statistics.IOStatisticAssertions.verifyStatisticCounterValue;
 import static org.apache.hadoop.fs.statistics.IOStatisticAssertions.verifyStatisticGaugeValue;
@@ -61,11 +66,8 @@ import static org.apache.hadoop.io.IOUtils.cleanupWithLogger;
  * Test the prefetching input stream, validates that the underlying S3ACachingInputStream and
  * S3AInMemoryInputStream are working as expected.
  */
+@RunWith(Parameterized.class)
 public class ITestS3APrefetchingInputStream extends AbstractS3ACostTest {
-
-  public ITestS3APrefetchingInputStream() {
-    super(true);
-  }
 
   private static final Logger LOG =
       LoggerFactory.getLogger(ITestS3APrefetchingInputStream.class);
@@ -82,11 +84,27 @@ public class ITestS3APrefetchingInputStream extends AbstractS3ACostTest {
   private static final int SMALL_FILE_SIZE = S_1K * 16;
 
 
+  @Parameterized.Parameters(name = "{0}")
+  public static Collection<Object[]> data() {
+    return Arrays.asList(new Object[][]{
+        {"crt_enable", true},
+        {"crt_disabled", false},
+    });
+  }
+
+  private boolean crtEnabled;
+
+  public ITestS3APrefetchingInputStream(String name, boolean crtEnabled) {
+    super(true);
+    this.crtEnabled = crtEnabled;
+  }
+
   @Override
   public Configuration createConfiguration() {
     Configuration conf = super.createConfiguration();
     S3ATestUtils.removeBaseAndBucketOverrides(conf, PREFETCH_ENABLED_KEY);
     conf.setBoolean(PREFETCH_ENABLED_KEY, true);
+    conf.setBoolean(S3_CRT_ENABLED, crtEnabled);
     return conf;
   }
 
@@ -138,7 +156,7 @@ public class ITestS3APrefetchingInputStream extends AbstractS3ACostTest {
         verifyStatisticGaugeValue(ioStats, STREAM_READ_BLOCKS_IN_FILE_CACHE,
             0);
       }
-      timer.end("Read file fully with Prefetching and CRT");
+      timer.end("Read file fully with Prefetching and CRT enabled: " + crtEnabled);
 
       // Assert that first block is read synchronously, following blocks are prefetched
       verifyStatisticCounterValue(ioStats, STREAM_READ_PREFETCH_OPERATIONS,
