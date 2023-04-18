@@ -104,12 +104,12 @@ public class ITestS3ABenchmarkCRT extends S3AScaleTestBase {
   }
 
 
-//  @Test
-//  public void benchmarkRename_256MB() throws IOException {
-//    rename(256 * _1MB, "file_size_256M", 1);
-////    rename(256 * _1MB, "file_size_256M", 2);
-////    rename(256 * _1MB, "file_size_256M", 3);
-//  }
+  @Test
+  public void benchmarkRename_256MB() throws IOException {
+    rename(256 * _1MB, "file_size_256M", 1);
+//    rename(256 * _1MB, "file_size_256M", 2);
+//    rename(256 * _1MB, "file_size_256M", 3);
+  }
 //
 //  @Test
 //  public void benchmarkRename_1GB() throws IOException {
@@ -121,10 +121,10 @@ public class ITestS3ABenchmarkCRT extends S3AScaleTestBase {
 //    rename(2 * _1GB, "file_size_2GB", 1);
 //  }
 
-  @Test
-  public void benchmarkRename_256MB() throws IOException {
-    createHugeFile(256 * _1MB, "file_size_256M_create_test_" + crtEnabled);
-  }
+//  @Test
+//  public void benchmarkRename_256MB() throws IOException {
+//    createHugeFile(256 * _1MB, "file_size_256M_create_test_" + crtEnabled);
+//  }
 
   private void rename(long size, String name, int iteration) throws IOException {
 
