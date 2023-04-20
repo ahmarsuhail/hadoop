@@ -102,6 +102,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.impl.prefetch.ExecutorServiceFuturePool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.encryption.s3.materials.KmsKeyring;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -981,6 +982,14 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     S3ClientFactory clientFactory = ReflectionUtils.newInstance(s3ClientFactoryClass, conf);
     s3Client = clientFactory.createS3Client(getUri(), parameters);
     createS3AsyncClient(clientFactory, parameters);
+    
+    if (isCSEEnabled) {
+      String kmsKeyId = getS3EncryptionKey(bucket, conf, true);
+      KmsKeyring kmsKeyring = clientFactory.createKmsKeyring(parameters, kmsKeyId);
+      s3Client = clientFactory.createS3EncryptionClient(s3AsyncClient, s3Client, kmsKeyring);
+      s3AsyncClient = clientFactory.createS3AsyncEncryptionClient(s3AsyncClient, kmsKeyring);
+    }
+
     transferManager =  clientFactory.createS3TransferManager(s3AsyncClient);
   }
 
