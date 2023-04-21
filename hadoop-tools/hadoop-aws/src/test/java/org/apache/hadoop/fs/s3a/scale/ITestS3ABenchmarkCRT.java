@@ -69,7 +69,7 @@ public class ITestS3ABenchmarkCRT extends S3AScaleTestBase {
   @Parameterized.Parameters(name = "{0}")
   public static Collection<Object[]> data() {
     return Arrays.asList(new Object[][]{
-        {"crt_enable", true},
+        {"crt_enabled", true},
         {"crt_disabled", false},
     });
   }
@@ -124,7 +124,7 @@ public class ITestS3ABenchmarkCRT extends S3AScaleTestBase {
 
     @Test
     public void benchmarkRename_6GB() throws IOException {
-      rename(6 * _1GB, "file_size_5GB", 1);
+      rename(6 * _1GB, "file_size_6GB", 1);
     }
 
 //  @Test

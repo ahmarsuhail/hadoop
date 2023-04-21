@@ -855,9 +855,9 @@ class S3ABlockOutputStream extends OutputStream implements
             ? RequestBody.fromFile(uploadData.getFile())
             : RequestBody.fromInputStream(uploadData.getUploadStream(), size);
 
-        asyncRequestBody = uploadData.hasFile()
-            ? AsyncRequestBody.fromFile(uploadData.getFile())
-            : AsyncRequestBody.fromInputStream(uploadData.getUploadStream(), (long) size, executorService);
+//        asyncRequestBody = uploadData.hasFile()
+//            ? AsyncRequestBody.fromFile(uploadData.getFile())
+//            : AsyncRequestBody.fromInputStream(uploadData.getUploadStream(), (long) size, executorService);
 
         request = writeOperationHelper.newUploadPartRequestBuilder(
             key,
@@ -890,11 +890,11 @@ class S3ABlockOutputStream extends OutputStream implements
 
               progressCallback.progressChanged(TRANSFER_PART_STARTED_EVENT);
 
-//              UploadPartResponse response = writeOperationHelper
-//                  .uploadPart(request, requestBody);
-
               UploadPartResponse response = writeOperationHelper
-                  .uploadPartAsync(request, asyncRequestBody);
+                  .uploadPart(request, requestBody);
+
+//              UploadPartResponse response = writeOperationHelper
+//                  .uploadPartAsync(request, asyncRequestBody);
 
               LOG.debug("Completed upload of {} to part {}",
                   block, response.eTag());
