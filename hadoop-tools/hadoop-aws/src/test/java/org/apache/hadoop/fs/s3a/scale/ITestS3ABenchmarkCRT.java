@@ -123,8 +123,8 @@ public class ITestS3ABenchmarkCRT extends S3AScaleTestBase {
 
 
     @Test
-    public void benchmarkRename_5GB() throws IOException {
-      rename(5 * _1GB, "file_size_5GB", 1);
+    public void benchmarkRename_6GB() throws IOException {
+      rename(6 * _1GB, "file_size_5GB", 1);
     }
 
 //  @Test
