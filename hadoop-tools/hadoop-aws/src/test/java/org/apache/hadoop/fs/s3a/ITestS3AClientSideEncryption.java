@@ -237,8 +237,8 @@ public abstract class ITestS3AClientSideEncryption extends AbstractS3ATestBase {
       assertEquals("Mismatch in content length bytes", SMALL_FILE_SIZE,
           encryptedFSFileStatus.getLen());
 
-      intercept(SecurityException.class, "",
-          "SecurityException should be thrown",
+      intercept(AWSClientIOException.class, "",
+          "AWSClientIOException should be thrown",
           () -> {
             in.read(new byte[SMALL_FILE_SIZE]);
             return "Exception should be raised if unencrypted data is read by "
