@@ -120,8 +120,14 @@ public class Invoker {
       throws IOException {
     try (DurationInfo ignored = new DurationInfo(LOG, false, "%s", action)) {
       return operation.apply();
-    } catch (SdkException e) {
-      throw S3AUtils.translateException(action, path, e);
+    } catch (Exception e) {
+      if (e instanceof SdkException) {
+        throw S3AUtils.translateException(action, path, (SdkException) e);
+      } else if (e.getCause() != null && e.getCause() instanceof SdkException) {
+        throw S3AUtils.translateException(action, path, (SdkException) e.getCause());
+      }
+
+      throw e;
     }
   }
 
@@ -145,8 +151,14 @@ public class Invoker {
       throws IOException {
     try {
       return invokeTrackingDuration(tracker, operation);
-    } catch (SdkException e) {
-      throw S3AUtils.translateException(action, path, e);
+    } catch (Exception e) {
+      if (e instanceof SdkException) {
+        throw S3AUtils.translateException(action, path, (SdkException) e);
+      } else if (e.getCause() instanceof SdkException) {
+        throw S3AUtils.translateException(action, path, (SdkException) e.getCause());
+      }
+
+      throw e;
     }
   }
 
@@ -186,8 +198,14 @@ public class Invoker {
       throws IOException {
     try (DurationInfo ignored = new DurationInfo(LOG, false, "%s", action)) {
       return FutureIO.awaitFuture(future);
-    } catch (SdkException e) {
-      throw S3AUtils.translateException(action, path, e);
+    } catch (Exception e) {
+      if (e instanceof SdkException) {
+        throw S3AUtils.translateException(action, path, (SdkException) e);
+      } else if (e.getCause() instanceof SdkException) {
+        throw S3AUtils.translateException(action, path, (SdkException) e.getCause());
+      }
+
+      throw e;
     }
   }
 
@@ -466,8 +484,16 @@ public class Invoker {
         }
         // execute the operation, returning if successful
         return operation.apply();
-      } catch (IOException | SdkException e) {
-        caught = e;
+      } catch (Exception e) {
+
+        if (e instanceof IOException || e instanceof SdkException) {
+          caught = e;
+        } else if (e.getCause() instanceof SdkException) {
+          caught = (SdkException) e.getCause();
+        } else {
+          throw e;
+        }
+
       }
       // you only get here if the operation didn't complete
       // normally, hence caught != null
