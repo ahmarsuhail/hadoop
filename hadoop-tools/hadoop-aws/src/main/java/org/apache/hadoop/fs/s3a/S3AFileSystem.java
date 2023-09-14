@@ -4248,8 +4248,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
    */
   protected synchronized void stopAllServices() {
     closeAutocloseables(LOG, transferManager,
-        s3Client,
-        getS3AsyncClient());
+        s3Client);
     transferManager = null;
     s3Client = null;
     s3AsyncClient = null;
