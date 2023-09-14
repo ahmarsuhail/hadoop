@@ -19,9 +19,12 @@
 package org.apache.hadoop.fs.s3a;
 
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 
@@ -34,6 +37,8 @@ import org.junit.Test;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.Assert.assertEquals;
 
@@ -61,7 +66,11 @@ public class TestS3AUnbuffer extends AbstractS3AMockTest {
         .lastModified(Instant.ofEpochMilli(2L))
         .eTag("mock-etag")
         .build();
-    when(s3.headObject((HeadObjectRequest) any())).thenReturn(objectMetadata);
+
+    when(s3.headBucket((HeadBucketRequest) any()))
+        .thenReturn(CompletableFuture.completedFuture(HeadBucketResponse.builder().build()));
+
+    when(s3.headObject((HeadObjectRequest) any())).thenReturn(CompletableFuture.completedFuture(objectMetadata));
 
     // Create mock ResponseInputStream<GetObjectResponse> and GetObjectResponse for open()
     GetObjectResponse objectResponse = GetObjectResponse.builder()
@@ -76,7 +85,8 @@ public class TestS3AUnbuffer extends AbstractS3AMockTest {
     ResponseInputStream<GetObjectResponse> getObjectResponseInputStream =
         new ResponseInputStream(objectResponse,
             AbortableInputStream.create(objectStream, () -> {}));
-    when(s3.getObject((GetObjectRequest) any())).thenReturn(getObjectResponseInputStream);
+//    when(s3.getObject(GetObjectRequest, AsyncResponseTransformer.toBlockingInputStream()))
+//        .thenReturn(CompletableFuture.completedFuture(getObjectResponseInputStream));
 
     // Call read and then unbuffer
     FSDataInputStream stream = fs.open(path);

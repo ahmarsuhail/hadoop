@@ -26,11 +26,16 @@ import org.apache.hadoop.fs.s3a.impl.AWSClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.crt.CRT;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
+import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
+import software.amazon.awssdk.http.crt.ProxyConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
@@ -48,6 +53,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.s3a.statistics.impl.AwsStatisticsCollector;
 import org.apache.hadoop.fs.store.LogExactlyOnce;
 
+import static org.apache.hadoop.fs.s3a.Constants.AWS_S3_CLIENT;
 import static org.apache.hadoop.fs.s3a.impl.AWSHeaders.REQUESTER_PAYS_HEADER;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_SECURE_CONNECTIONS;
 import static org.apache.hadoop.fs.s3a.Constants.SECURE_CONNECTIONS;
@@ -100,19 +106,22 @@ public class DefaultS3ClientFactory extends Configured
     Configuration conf = getConf();
     String bucket = uri.getHost();
 
-    NettyNioAsyncHttpClient.Builder httpClientBuilder = AWSClientConfig
-        .createAsyncHttpClientBuilder(conf)
-        .proxyConfiguration(AWSClientConfig.createAsyncProxyConfiguration(conf, bucket));
+    String awsClient = conf.get(AWS_S3_CLIENT, null);
 
-    MultipartConfiguration multipartConfiguration = MultipartConfiguration.builder()
-        .minimumPartSizeInBytes(parameters.getMinimumPartSize())
-        .thresholdInBytes(parameters.getMultiPartThreshold())
-        .build();
+    SdkAsyncHttpClient.Builder httpClientBuilder;
+
+    if (awsClient.equals("CRT_HTTP")) {
+      httpClientBuilder = AWSClientConfig
+          .createAsyncCRTHTTPClientBuilder(conf);
+    } else {
+      httpClientBuilder = AWSClientConfig
+          .createAsyncHttpClientBuilder(conf)
+          .proxyConfiguration(AWSClientConfig.createAsyncProxyConfiguration(conf, bucket));
+    }
+
 
     return configureClientBuilder(S3AsyncClient.builder(), parameters, conf, bucket)
         .httpClientBuilder(httpClientBuilder)
-        .multipartConfiguration(multipartConfiguration)
-        .multipartEnabled(true)
         .build();
   }
 

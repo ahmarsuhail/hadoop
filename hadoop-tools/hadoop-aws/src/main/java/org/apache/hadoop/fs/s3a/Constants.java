@@ -1205,6 +1205,13 @@ public final class Constants {
           "fs.s3a.vectored.read.max.merged.size";
 
   /**
+   * What client should be used. CRT/CRT_HTTP
+   * Value : {@value}.
+   */
+  public static final String AWS_S3_CLIENT =
+      "fs.s3a.aws.s3.client";
+
+  /**
    * Default minimum seek in bytes during vectored reads : {@value}.
    */
   public static final int DEFAULT_AWS_S3_VECTOR_READS_MIN_SEEK_SIZE = 4896; // 4K

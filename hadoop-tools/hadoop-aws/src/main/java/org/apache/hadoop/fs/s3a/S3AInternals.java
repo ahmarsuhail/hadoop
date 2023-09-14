@@ -21,6 +21,7 @@ package org.apache.hadoop.fs.s3a;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -49,7 +50,7 @@ public interface S3AInternals {
    * @param reason a justification for requesting access.
    * @return S3Client
    */
-  S3Client getAmazonS3V2ClientForTesting(String reason);
+  S3AsyncClient getAmazonS3V2ClientForTesting(String reason);
 
   /**
    * Get the region of a bucket.
