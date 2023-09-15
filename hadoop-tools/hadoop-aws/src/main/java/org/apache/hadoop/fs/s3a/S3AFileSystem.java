@@ -2204,8 +2204,9 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
           innerRename(src, dst));
       LOG.debug("Copied {} bytes", bytesCopied);
       return true;
-    } catch (SdkException e) {
-      throw translateException("rename(" + src +", " + dst + ")", src, e);
+    } catch (CompletionException e) {
+      SdkException ex = (SdkException) e.getCause();
+      throw translateException("rename(" + src +", " + dst + ")", src, ex);
     } catch (RenameFailedException e) {
       LOG.info("{}", e.getMessage());
       LOG.debug("rename failure", e);
@@ -3453,8 +3454,8 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
       LOG.debug("Couldn't delete {} - does not exist: {}", path, e.toString());
       instrumentation.errorIgnored();
       return false;
-    } catch (SdkException e) {
-      throw translateException("delete", path, e);
+    } catch (CompletionException e) {
+      throw translateException("delete", path, (SdkException) e.getCause());
     }
   }
 
