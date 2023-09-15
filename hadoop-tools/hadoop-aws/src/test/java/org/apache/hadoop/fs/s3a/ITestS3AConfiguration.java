@@ -567,7 +567,7 @@ public class ITestS3AConfiguration {
 
     intercept(AccessDeniedException.class, "", () ->
         Invoker.once("head", bucket, () ->
-            s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build())));
+            s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build()).join()));
 
     Assertions.assertThat(CustomS3Signer.isS3SignerCalled())
         .describedAs("Custom S3 signer not called").isTrue();

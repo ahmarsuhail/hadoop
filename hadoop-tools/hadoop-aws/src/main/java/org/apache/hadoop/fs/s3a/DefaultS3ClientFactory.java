@@ -110,7 +110,7 @@ public class DefaultS3ClientFactory extends Configured
 
     SdkAsyncHttpClient.Builder httpClientBuilder;
 
-    if (awsClient != null & awsClient.equals("CRT_HTTP")) {
+    if (awsClient != null && awsClient.equals("CRT_HTTP")) {
       httpClientBuilder = AWSClientConfig
           .createAsyncCRTHTTPClientBuilder(conf);
     } else {
