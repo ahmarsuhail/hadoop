@@ -42,6 +42,9 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3BaseClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtConnectionHealthConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
 import software.amazon.awssdk.services.s3.multipart.MultipartConfiguration;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 
@@ -114,6 +117,9 @@ public class DefaultS3ClientFactory extends Configured
       LOG.info("Using CRT HTTP client");
       httpClientBuilder = AWSClientConfig
           .createAsyncCRTHTTPClientBuilder(conf);
+    } else if (awsClient != null && awsClient.equals("CRT_S3")) {
+      LOG.info("Using S3 CRT client");
+      return createCRTAsyncClient(parameters, conf).build();
     } else {
       httpClientBuilder = AWSClientConfig
           .createAsyncHttpClientBuilder(conf)
@@ -131,6 +137,26 @@ public class DefaultS3ClientFactory extends Configured
     return S3TransferManager.builder()
         .s3Client(s3AsyncClient)
         .build();
+  }
+
+  private S3CrtAsyncClientBuilder createCRTAsyncClient(S3ClientCreationParameters parameters,
+      Configuration conf) {
+
+    S3CrtAsyncClientBuilder s3CrtAsyncClientBuilder = S3AsyncClient.crtBuilder();
+
+    Region region = parameters.getRegion();
+    LOG.debug("Using region {}", region);
+
+    URI endpoint = getS3Endpoint(parameters.getEndpoint(), conf);
+
+    if (endpoint != null) {
+      s3CrtAsyncClientBuilder.endpointOverride(endpoint);
+      LOG.debug("Using endpoint {}", endpoint);
+    }
+
+    return S3AsyncClient.crtBuilder().region(region).forcePathStyle(parameters.isPathStyleAccess())
+        .credentialsProvider(parameters.getCredentialSet());
+
   }
 
   /**
