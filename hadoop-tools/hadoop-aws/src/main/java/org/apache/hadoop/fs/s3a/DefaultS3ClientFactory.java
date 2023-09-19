@@ -121,6 +121,7 @@ public class DefaultS3ClientFactory extends Configured
       LOG.info("Using S3 CRT client");
       return createCRTAsyncClient(parameters, conf).build();
     } else {
+      LOG.info("Using JAVA HTTP client");
       httpClientBuilder = AWSClientConfig
           .createAsyncHttpClientBuilder(conf)
           .proxyConfiguration(AWSClientConfig.createAsyncProxyConfiguration(conf, bucket));
