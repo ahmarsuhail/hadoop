@@ -1138,12 +1138,7 @@
       <dependency>
         <groupId>software.amazon.eventstream</groupId>
         <artifactId>eventstream</artifactId>
-        <version>${aws.evenstream.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>software.amazon.awssdk.crt</groupId>
-        <artifactId>aws-crt</artifactId>
-        <version>${awscrt.version}</version>
+        <version>${aws.eventstream.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.mina</groupId>
