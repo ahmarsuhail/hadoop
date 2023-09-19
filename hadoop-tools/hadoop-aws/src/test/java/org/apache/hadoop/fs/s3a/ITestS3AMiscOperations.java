@@ -25,6 +25,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetBucketEncryptionRequest;
 import software.amazon.awssdk.services.s3.model.GetBucketEncryptionResponse;
@@ -411,13 +412,13 @@ public class ITestS3AMiscOperations extends AbstractS3ATestBase {
    */
   private GetBucketEncryptionResponse getDefaultEncryption() throws IOException {
     S3AFileSystem fs = getFileSystem();
-    S3Client s3 = getS3AInternals().getAmazonS3V2ClientForTesting("check default encryption");
+    S3AsyncClient s3 = getS3AInternals().getAmazonS3V2ClientForTesting("check default encryption");
     try (AuditSpan s = span()){
       return Invoker.once("getBucketEncryption()",
           fs.getBucket(),
           () -> s3.getBucketEncryption(GetBucketEncryptionRequest.builder()
               .bucket(fs.getBucket())
-              .build()));
+              .build()).join());
     } catch (FileNotFoundException e) {
       return null;
     }

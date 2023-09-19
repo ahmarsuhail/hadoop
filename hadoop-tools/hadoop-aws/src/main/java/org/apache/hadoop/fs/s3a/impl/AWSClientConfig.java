@@ -31,6 +31,8 @@ import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
+import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 
 import org.apache.hadoop.conf.Configuration;
@@ -147,6 +149,21 @@ public final class AWSClientConfig {
     //  NetworkBinding.bindSSLChannelMode(conf, awsConf);
 
     return httpClientBuilder;
+  }
+
+  public static SdkAsyncHttpClient.Builder createAsyncCRTHTTPClientBuilder(Configuration conf) {
+    AwsCrtAsyncHttpClient.Builder httpClientBuilder = AwsCrtAsyncHttpClient.builder();
+
+    httpClientBuilder.maxConcurrency(S3AUtils.intOption(conf, MAXIMUM_CONNECTIONS,
+        DEFAULT_MAXIMUM_CONNECTIONS, 1));
+
+    int connectionEstablishTimeout =
+        S3AUtils.intOption(conf, ESTABLISH_TIMEOUT, DEFAULT_ESTABLISH_TIMEOUT, 0);
+    int socketTimeout = S3AUtils.intOption(conf, SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, 0);
+
+    httpClientBuilder.connectionTimeout(Duration.ofSeconds(connectionEstablishTimeout));
+
+   return httpClientBuilder;
   }
 
   /**

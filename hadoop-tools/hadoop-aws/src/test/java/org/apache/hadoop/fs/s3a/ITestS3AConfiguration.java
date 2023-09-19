@@ -35,6 +35,7 @@ import software.amazon.awssdk.core.client.config.SdkClientOption;
 import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
 import software.amazon.awssdk.core.signer.Signer;
 import software.amazon.awssdk.http.SdkHttpFullRequest;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
@@ -95,7 +96,7 @@ public class ITestS3AConfiguration {
    * @param reason why?
    * @return the client
    */
-  private S3Client getS3Client(String reason) {
+  private S3AsyncClient getS3Client(String reason) {
     return requireNonNull(getS3AInternals().getAmazonS3V2ClientForTesting(reason));
   }
 
@@ -371,7 +372,7 @@ public class ITestS3AConfiguration {
     try {
       fs = S3ATestUtils.createTestFileSystem(conf);
       assertNotNull(fs);
-      S3Client s3 = getS3Client("configuration");
+      S3AsyncClient s3 = getS3Client("configuration");
 
       SdkClientConfiguration clientConfiguration = getField(s3, SdkClientConfiguration.class,
           "clientConfiguration");
@@ -405,7 +406,7 @@ public class ITestS3AConfiguration {
     conf = new Configuration();
     fs = S3ATestUtils.createTestFileSystem(conf);
     assertNotNull(fs);
-    S3Client s3 = getS3Client("User Agent");
+    S3AsyncClient s3 = getS3Client("User Agent");
     SdkClientConfiguration clientConfiguration = getField(s3, SdkClientConfiguration.class,
         "clientConfiguration");
     Assertions.assertThat(clientConfiguration.option(SdkClientOption.CLIENT_USER_AGENT))
@@ -419,7 +420,7 @@ public class ITestS3AConfiguration {
     conf.set(Constants.USER_AGENT_PREFIX, "MyApp");
     fs = S3ATestUtils.createTestFileSystem(conf);
     assertNotNull(fs);
-    S3Client s3 = getS3Client("User agent");
+    S3AsyncClient s3 = getS3Client("User agent");
     SdkClientConfiguration clientConfiguration = getField(s3, SdkClientConfiguration.class,
         "clientConfiguration");
     Assertions.assertThat(clientConfiguration.option(SdkClientOption.CLIENT_USER_AGENT))
@@ -432,7 +433,7 @@ public class ITestS3AConfiguration {
     conf = new Configuration();
     conf.set(REQUEST_TIMEOUT, "120");
     fs = S3ATestUtils.createTestFileSystem(conf);
-    S3Client s3 = getS3Client("Request timeout (ms)");
+    S3AsyncClient s3 = getS3Client("Request timeout (ms)");
     SdkClientConfiguration clientConfiguration = getField(s3, SdkClientConfiguration.class,
         "clientConfiguration");
     assertEquals("Configured " + REQUEST_TIMEOUT +
@@ -554,7 +555,7 @@ public class ITestS3AConfiguration {
     config.set(AWS_REGION, EU_WEST_1);
     fs = S3ATestUtils.createTestFileSystem(config);
 
-    S3Client s3Client = getS3Client("testS3SpecificSignerOverride");
+    S3AsyncClient s3Client = getS3Client("testS3SpecificSignerOverride");
 
     final String bucket = fs.getBucket();
     StsClient stsClient =
@@ -566,7 +567,7 @@ public class ITestS3AConfiguration {
 
     intercept(AccessDeniedException.class, "", () ->
         Invoker.once("head", bucket, () ->
-            s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build())));
+            s3Client.headBucket(HeadBucketRequest.builder().bucket(bucket).build()).join()));
 
     Assertions.assertThat(CustomS3Signer.isS3SignerCalled())
         .describedAs("Custom S3 signer not called").isTrue();

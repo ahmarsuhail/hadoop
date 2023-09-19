@@ -26,17 +26,28 @@ import org.apache.hadoop.fs.s3a.impl.AWSClientConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.crt.CRT;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
+import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
+import software.amazon.awssdk.http.crt.ProxyConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3BaseClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+
+import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtConnectionHealthConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
+import software.amazon.awssdk.services.s3.multipart.MultipartConfiguration;
+
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 
 import org.apache.commons.lang3.StringUtils;
@@ -47,6 +58,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.s3a.statistics.impl.AwsStatisticsCollector;
 import org.apache.hadoop.fs.store.LogExactlyOnce;
 
+import static org.apache.hadoop.fs.s3a.Constants.AWS_S3_CLIENT;
 import static org.apache.hadoop.fs.s3a.impl.AWSHeaders.REQUESTER_PAYS_HEADER;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_SECURE_CONNECTIONS;
 import static org.apache.hadoop.fs.s3a.Constants.SECURE_CONNECTIONS;
@@ -98,9 +110,27 @@ public class DefaultS3ClientFactory extends Configured
 
     Configuration conf = getConf();
     String bucket = uri.getHost();
-    NettyNioAsyncHttpClient.Builder httpClientBuilder = AWSClientConfig
-        .createAsyncHttpClientBuilder(conf)
-        .proxyConfiguration(AWSClientConfig.createAsyncProxyConfiguration(conf, bucket));
+
+    String awsClient = conf.get(AWS_S3_CLIENT, null);
+
+    SdkAsyncHttpClient.Builder httpClientBuilder;
+
+    if (awsClient != null && awsClient.equals("CRT_HTTP")) {
+      LOG.info("Using CRT HTTP client");
+      httpClientBuilder = AWSClientConfig
+          .createAsyncCRTHTTPClientBuilder(conf);
+    } else if (awsClient != null && awsClient.equals("CRT_S3")) {
+      LOG.info("Using S3 CRT client");
+      return createCRTAsyncClient(parameters, conf).build();
+    } else {
+      LOG.info("Using JAVA HTTP client");
+      httpClientBuilder = AWSClientConfig
+          .createAsyncHttpClientBuilder(conf)
+          .proxyConfiguration(AWSClientConfig.createAsyncProxyConfiguration(conf, bucket));
+    }
+
+
+
     return configureClientBuilder(S3AsyncClient.builder(), parameters, conf, bucket)
         .httpClientBuilder(httpClientBuilder)
         .build();
@@ -112,6 +142,26 @@ public class DefaultS3ClientFactory extends Configured
     return S3TransferManager.builder()
         .s3Client(s3AsyncClient)
         .build();
+  }
+
+  private S3CrtAsyncClientBuilder createCRTAsyncClient(S3ClientCreationParameters parameters,
+      Configuration conf) {
+
+    S3CrtAsyncClientBuilder s3CrtAsyncClientBuilder = S3AsyncClient.crtBuilder();
+
+    Region region = parameters.getRegion();
+    LOG.debug("Using region {}", region);
+
+    URI endpoint = getS3Endpoint(parameters.getEndpoint(), conf);
+
+    if (endpoint != null) {
+      s3CrtAsyncClientBuilder.endpointOverride(endpoint);
+      LOG.debug("Using endpoint {}", endpoint);
+    }
+
+    return S3AsyncClient.crtBuilder().region(region).forcePathStyle(parameters.isPathStyleAccess())
+        .credentialsProvider(parameters.getCredentialSet());
+
   }
 
   /**
