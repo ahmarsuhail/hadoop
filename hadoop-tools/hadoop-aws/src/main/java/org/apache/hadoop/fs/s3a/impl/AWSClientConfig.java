@@ -41,8 +41,10 @@ import org.apache.hadoop.fs.s3a.auth.SignerFactory;
 import org.apache.hadoop.util.VersionInfo;
 import org.apache.http.client.utils.URIBuilder;
 
+import static org.apache.hadoop.fs.s3a.Constants.ACQUIRE_TIMEOUT;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_SERVICE_IDENTIFIER_S3;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_SERVICE_IDENTIFIER_STS;
+import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_ACQUIRE_TIMEOUT;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_ESTABLISH_TIMEOUT;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_MAXIMUM_CONNECTIONS;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_MAX_ERROR_RETRIES;
@@ -140,10 +142,12 @@ public final class AWSClientConfig {
     int connectionEstablishTimeout =
         S3AUtils.intOption(conf, ESTABLISH_TIMEOUT, DEFAULT_ESTABLISH_TIMEOUT, 0);
     int socketTimeout = S3AUtils.intOption(conf, SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, 0);
+    int accquireTimeout =  S3AUtils.intOption(conf, ACQUIRE_TIMEOUT, DEFAULT_ACQUIRE_TIMEOUT, 0);
 
-    httpClientBuilder.connectionTimeout(Duration.ofSeconds(connectionEstablishTimeout));
-    httpClientBuilder.readTimeout(Duration.ofSeconds(socketTimeout));
-    httpClientBuilder.writeTimeout(Duration.ofSeconds(socketTimeout));
+    httpClientBuilder.connectionTimeout(Duration.ofMillis(connectionEstablishTimeout));
+    httpClientBuilder.readTimeout(Duration.ofMillis(socketTimeout));
+    httpClientBuilder.writeTimeout(Duration.ofMillis(socketTimeout));
+    httpClientBuilder.connectionAcquisitionTimeout(Duration.ofMillis(accquireTimeout));
 
     // TODO: Don't think you can set a socket factory for the netty client.
     //  NetworkBinding.bindSSLChannelMode(conf, awsConf);
@@ -157,11 +161,12 @@ public final class AWSClientConfig {
     httpClientBuilder.maxConcurrency(S3AUtils.intOption(conf, MAXIMUM_CONNECTIONS,
         DEFAULT_MAXIMUM_CONNECTIONS, 1));
 
+
     int connectionEstablishTimeout =
         S3AUtils.intOption(conf, ESTABLISH_TIMEOUT, DEFAULT_ESTABLISH_TIMEOUT, 0);
     int socketTimeout = S3AUtils.intOption(conf, SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, 0);
 
-    httpClientBuilder.connectionTimeout(Duration.ofSeconds(connectionEstablishTimeout));
+    httpClientBuilder.connectionTimeout(Duration.ofMillis(connectionEstablishTimeout));
 
    return httpClientBuilder;
   }
