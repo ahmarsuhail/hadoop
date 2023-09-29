@@ -144,6 +144,8 @@ public final class AWSClientConfig {
     int socketTimeout = S3AUtils.intOption(conf, SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, 0);
     int accquireTimeout =  S3AUtils.intOption(conf, ACQUIRE_TIMEOUT, DEFAULT_ACQUIRE_TIMEOUT, 0);
 
+    LOG.info("SETTING acquire timeout to {}", accquireTimeout);
+
     httpClientBuilder.connectionTimeout(Duration.ofMillis(connectionEstablishTimeout));
     httpClientBuilder.readTimeout(Duration.ofMillis(socketTimeout));
     httpClientBuilder.writeTimeout(Duration.ofMillis(socketTimeout));
