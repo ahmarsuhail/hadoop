@@ -34,12 +34,13 @@ import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.thirdparty.org.apache.http.client.utils.URIBuilder;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.S3AUtils;
 import org.apache.hadoop.fs.s3a.auth.SignerFactory;
 import org.apache.hadoop.util.VersionInfo;
-import org.apache.http.client.utils.URIBuilder;
+
 
 import static org.apache.hadoop.fs.s3a.Constants.ACQUIRE_TIMEOUT;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_SERVICE_IDENTIFIER_S3;

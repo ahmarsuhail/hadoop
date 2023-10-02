@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.core.client.builder.SdkAsyncClientBuilder;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
@@ -37,7 +38,10 @@ import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
 import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
 import software.amazon.awssdk.http.crt.ProxyConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.metrics.MetricPublisher;
+import software.amazon.awssdk.metrics.publishers.cloudwatch.CloudWatchMetricPublisher;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.cloudwatch.CloudWatchAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3BaseClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -48,6 +52,7 @@ import software.amazon.awssdk.services.s3.crt.S3CrtConnectionHealthConfiguration
 import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
 import software.amazon.awssdk.services.s3.multipart.MultipartConfiguration;
 
+import software.amazon.awssdk.services.s3control.model.CloudWatchMetrics;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 
 import org.apache.commons.lang3.StringUtils;
@@ -189,6 +194,7 @@ public class DefaultS3ClientFactory extends Configured
       LOG.debug("Using endpoint {}", endpoint);
     }
 
+
     S3Configuration serviceConfiguration = S3Configuration.builder()
             .pathStyleAccessEnabled(parameters.isPathStyleAccess())
             .build();
@@ -198,6 +204,7 @@ public class DefaultS3ClientFactory extends Configured
         .credentialsProvider(parameters.getCredentialSet())
         .region(region)
         .serviceConfiguration(serviceConfiguration);
+
   }
 
   /**
@@ -238,6 +245,14 @@ public class DefaultS3ClientFactory extends Configured
 
     final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
     clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());
+
+    SdkAsyncHttpClient asyncHttpClient = NettyNioAsyncHttpClient.create();
+
+    MetricPublisher metricsPub = CloudWatchMetricPublisher.builder().cloudWatchClient(
+            CloudWatchAsyncClient.builder().httpClient(asyncHttpClient).build()).build();
+
+
+    clientOverrideConfigBuilder.addMetricPublisher(metricsPub);
 
     return clientOverrideConfigBuilder.build();
   }
