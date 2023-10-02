@@ -245,15 +245,7 @@ public class DefaultS3ClientFactory extends Configured
 
     final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
     clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());
-
-    SdkAsyncHttpClient asyncHttpClient = NettyNioAsyncHttpClient.create();
-
-    MetricPublisher metricsPub = CloudWatchMetricPublisher.builder().cloudWatchClient(
-            CloudWatchAsyncClient.builder().httpClient(asyncHttpClient).build()).build();
-
-
-    clientOverrideConfigBuilder.addMetricPublisher(metricsPub);
-
+    
     return clientOverrideConfigBuilder.build();
   }
 
