@@ -491,6 +491,10 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
       throws IOException {
     // get the host; this is guaranteed to be non-null, non-empty
     bucket = name.getHost();
+
+    LOG.info("Initialising client");
+    System.out.println("Initialising client");
+
     AuditSpan span = null;
     try {
       LOG.debug("Initializing S3AFileSystem for {}", bucket);
@@ -4221,7 +4225,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
       return;
     }
     isClosed = true;
-    LOG.debug("Filesystem {} is closed", uri);
+    LOG.info("Filesystem {} is closed", uri);
     try {
       super.close();
     } finally {
@@ -4245,7 +4249,11 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
    */
   protected synchronized void stopAllServices() {
     closeAutocloseables(LOG, transferManager,
-        s3Client);
+        s3Client, s3AsyncClient);
+
+    LOG.info("Closing clients and FS");
+    System.out.println("closing clients");
+
     transferManager = null;
     s3Client = null;
     s3AsyncClient = null;
