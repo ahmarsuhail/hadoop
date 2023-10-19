@@ -255,6 +255,12 @@ public final class Constants {
       "fs.s3a.connection.establish.timeout";
   public static final int DEFAULT_ESTABLISH_TIMEOUT = 50000;
 
+  // milliseconds until we give up trying to acquire a connection
+  public static final String ACQUIRE_TIMEOUT =
+      "fs.s3a.connection.acquire.timeout";
+  public static final int DEFAULT_ACQUIRE_TIMEOUT = 50000;
+
+
   // milliseconds until we give up on a connection to s3
   public static final String SOCKET_TIMEOUT = "fs.s3a.connection.timeout";
   public static final int DEFAULT_SOCKET_TIMEOUT = 200000;
@@ -1203,6 +1209,13 @@ public final class Constants {
    */
   public static final String AWS_S3_VECTOR_READS_MAX_MERGED_READ_SIZE =
           "fs.s3a.vectored.read.max.merged.size";
+
+  /**
+   * What client should be used. CRT/CRT_HTTP
+   * Value : {@value}.
+   */
+  public static final String AWS_S3_CLIENT =
+      "fs.s3a.aws.s3.client";
 
   /**
    * Default minimum seek in bytes during vectored reads : {@value}.

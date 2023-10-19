@@ -242,9 +242,9 @@ public class RequestFactoryImpl implements RequestFactory {
         .metadataDirective(MetadataDirective.REPLACE)
         .acl(cannedACL);
 
-    if (srcom.storageClass() != null) {
-      copyObjectRequestBuilder.storageClass(srcom.storageClass());
-    }
+//    if (srcom.storageClass() != null) {
+//      copyObjectRequestBuilder.storageClass(srcom.storageClass());
+//    }
 
     copyObjectRequestBuilder.destinationBucket(getBucket())
         .destinationKey(dstKey).sourceBucket(getBucket()).sourceKey(srcKey);

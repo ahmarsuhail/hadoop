@@ -508,13 +508,24 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
-      <groupId>software.amazon.awssdk.crt</groupId>
-      <artifactId>aws-crt</artifactId>
-    </dependency>
-    <dependency>
       <groupId>software.amazon.eventstream</groupId>
       <artifactId>eventstream</artifactId>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>cloudwatch-metric-publisher</artifactId>
+      <version>2.20.129</version>
+      <exclusions>
+        <exclusion>
+          <groupId>io.netty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>aws-crt-client</artifactId>
     </dependency>
     <dependency>
       <groupId>org.assertj</groupId>
