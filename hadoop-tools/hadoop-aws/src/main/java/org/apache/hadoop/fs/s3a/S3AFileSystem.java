@@ -1803,7 +1803,7 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
     public ResponseInputStream<GetObjectResponse> getObject(GetObjectRequest request) {
       // active the audit span used for the operation
       try (AuditSpan span = auditSpan.activate()) {
-        return s3AsyncClient.getObject(request, AsyncResponseTransformer.toBlockingInputStream()).join();
+        return s3Client.getObject(request);
       }
     }
 
