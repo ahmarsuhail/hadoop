@@ -742,7 +742,11 @@
   </property>
 
   <property>
-    <description>Enable SSL/TLS encryption for the ZooKeeper communication.</description>
+    <description>
+      Enable SSL/TLS encryption for the ZooKeeper communication.
+      Note: if hadoop.zk.ssl.enabled is set to a value, then that central setting has precedence,
+      and this value will be overridden by the value of hadoop.zk.ssl.enabled.
+    </description>
     <name>yarn.resourcemanager.zk-client-ssl.enabled</name>
     <value>false</value>
   </property>
@@ -5132,10 +5136,10 @@
 
   <property>
     <name>yarn.router.interceptor.user-thread-pool.keep-alive-time</name>
-    <value>0s</value>
+    <value>30s</value>
     <description>
       This configurable is used to set the keepAliveTime of the thread pool of the interceptor.
-      Default is 0s.
+      Default is 30s.
     </description>
   </property>
 
