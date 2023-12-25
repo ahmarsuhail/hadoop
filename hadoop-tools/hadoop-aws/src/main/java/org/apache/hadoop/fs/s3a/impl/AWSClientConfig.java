@@ -32,6 +32,7 @@ import software.amazon.awssdk.core.retry.RetryMode;
 import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
+import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 
 import org.apache.hadoop.classification.VisibleForTesting;
@@ -154,6 +155,18 @@ public final class AWSClientConfig {
     NetworkBinding.bindSSLChannelMode(conf, httpClientBuilder);
 
     return httpClientBuilder;
+  }
+
+  public static AwsCrtHttpClient.Builder createCrtHttpClientBuilder(Configuration conf) {
+    final ConnectionSettings conn = createConnectionSettings(conf);
+
+
+    AwsCrtHttpClient.Builder crtHttpClientBuilder = AwsCrtHttpClient.builder()
+        .connectionTimeout(conn.getEstablishTimeout())
+        .maxConcurrency(conn.getMaxConnections());
+
+
+    return crtHttpClientBuilder;
   }
 
   /**

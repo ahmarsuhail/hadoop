@@ -1525,6 +1525,14 @@ public final class Constants {
   public static final String STORE_CAPABILITY_AWS_V2 =
       "fs.s3a.capability.aws.v2";
 
+
+  /**
+   * Is CRT HTTP enabled?
+   * Value : {@value}.
+   */
+  public static final String AWS_CRT_ENABLED =
+      "fs.s3a.aws.s3.crt";
+
   /**
    * Use the S3 Express createSession() operation to authenticate with
    * S3Express storage?

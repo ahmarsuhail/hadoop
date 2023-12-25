@@ -31,6 +31,7 @@ import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
@@ -49,6 +50,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.s3a.statistics.impl.AwsStatisticsCollector;
 import org.apache.hadoop.fs.store.LogExactlyOnce;
 
+import static org.apache.hadoop.fs.s3a.Constants.AWS_CRT_ENABLED;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_REGION;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_S3_DEFAULT_REGION;
 import static org.apache.hadoop.fs.s3a.Constants.CENTRAL_ENDPOINT;
@@ -103,11 +105,25 @@ public class DefaultS3ClientFactory extends Configured
     Configuration conf = getConf();
     String bucket = uri.getHost();
 
-    ApacheHttpClient.Builder httpClientBuilder = AWSClientConfig
-        .createHttpClientBuilder(conf)
-        .proxyConfiguration(AWSClientConfig.createProxyConfiguration(conf, bucket));
+    Boolean crtEnabled = conf.getBoolean(AWS_CRT_ENABLED, false);
+
+    SdkHttpClient client;
+
+    if (crtEnabled) {
+      LOG.debug("Using sync CRT HTTP Client");
+      client = AWSClientConfig
+          .createCrtHttpClientBuilder(conf)
+          .build();
+    } else {
+      LOG.debug("Using regular HTTP Client");
+      client = AWSClientConfig
+          .createHttpClientBuilder(conf)
+          .proxyConfiguration(AWSClientConfig.createProxyConfiguration(conf, bucket))
+          .build();
+    }
+
     return configureClientBuilder(S3Client.builder(), parameters, conf, bucket)
-        .httpClientBuilder(httpClientBuilder)
+        .httpClient(client)
         .build();
   }
 
