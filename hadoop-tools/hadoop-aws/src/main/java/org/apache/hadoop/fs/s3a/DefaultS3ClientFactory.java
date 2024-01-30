@@ -34,7 +34,10 @@ import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.metrics.MetricPublisher;
+import software.amazon.awssdk.metrics.publishers.cloudwatch.CloudWatchMetricPublisher;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.cloudwatch.CloudWatchAsyncClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3BaseClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -111,11 +114,13 @@ public class DefaultS3ClientFactory extends Configured
 
     if (crtEnabled) {
       LOG.debug("Using sync CRT HTTP Client");
+      System.out.println("USING sync CRT HTTP Client");
       client = AWSClientConfig
           .createCrtHttpClientBuilder(conf)
           .build();
     } else {
       LOG.debug("Using regular HTTP Client");
+      System.out.println("USING regular HTTP Client");
       client = AWSClientConfig
           .createHttpClientBuilder(conf)
           .proxyConfiguration(AWSClientConfig.createProxyConfiguration(conf, bucket))
@@ -223,6 +228,15 @@ public class DefaultS3ClientFactory extends Configured
       clientOverrideConfigBuilder.addMetricPublisher(
           new AwsStatisticsCollector(parameters.getMetrics()));
     }
+
+    System.out.println("Creating metrics publisher");
+    MetricPublisher metricsPub = CloudWatchMetricPublisher.builder()
+        .namespace("CRT-test")
+        .cloudWatchClient(CloudWatchAsyncClient
+            .builder()
+            .credentialsProvider(parameters.getCredentialSet()).build())
+        .build();
+    clientOverrideConfigBuilder.addMetricPublisher(metricsPub);
 
     final RetryPolicy.Builder retryPolicyBuilder = AWSClientConfig.createRetryPolicyBuilder(conf);
     clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());

@@ -33,6 +33,7 @@ import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
+import software.amazon.awssdk.http.crt.ConnectionHealthConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 
 import org.apache.hadoop.classification.VisibleForTesting;
@@ -44,8 +45,11 @@ import org.apache.hadoop.util.VersionInfo;
 import static org.apache.hadoop.fs.s3a.Constants.CONNECTION_ACQUISITION_TIMEOUT;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_SERVICE_IDENTIFIER_S3;
 import static org.apache.hadoop.fs.s3a.Constants.AWS_SERVICE_IDENTIFIER_STS;
+import static org.apache.hadoop.fs.s3a.Constants.CONNECTION_HEALTH_CONFIGURED;
 import static org.apache.hadoop.fs.s3a.Constants.CONNECTION_IDLE_TIME;
 import static org.apache.hadoop.fs.s3a.Constants.CONNECTION_KEEPALIVE;
+import static org.apache.hadoop.fs.s3a.Constants.CONNECTION_MINIMUM_THROUGHPUT;
+import static org.apache.hadoop.fs.s3a.Constants.CONNECTION_MINIMUM_THROUGHPUT_TIMEOUT;
 import static org.apache.hadoop.fs.s3a.Constants.CONNECTION_TTL;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_CONNECTION_ACQUISITION_TIMEOUT_DURATION;
 import static org.apache.hadoop.fs.s3a.Constants.DEFAULT_CONNECTION_IDLE_TIME_DURATION;
@@ -72,6 +76,7 @@ import static org.apache.hadoop.fs.s3a.Constants.SIGNING_ALGORITHM;
 import static org.apache.hadoop.fs.s3a.Constants.SIGNING_ALGORITHM_S3;
 import static org.apache.hadoop.fs.s3a.Constants.SIGNING_ALGORITHM_STS;
 import static org.apache.hadoop.fs.s3a.Constants.SOCKET_TIMEOUT;
+import static org.apache.hadoop.fs.s3a.Constants.STORAGE_CLASS_OUTPOSTS;
 import static org.apache.hadoop.fs.s3a.Constants.USER_AGENT_PREFIX;
 import static org.apache.hadoop.fs.s3a.impl.ConfigurationHelper.enforceMinimumDuration;
 import static org.apache.hadoop.fs.s3a.impl.ConfigurationHelper.getDuration;
@@ -160,11 +165,48 @@ public final class AWSClientConfig {
   public static AwsCrtHttpClient.Builder createCrtHttpClientBuilder(Configuration conf) {
     final ConnectionSettings conn = createConnectionSettings(conf);
 
+    String connectionSettings = "ConnectionSettings{" +
+        "establish time out=" + conn.getEstablishTimeout() +
+        ", max connections=" + conn.getMaxConnections() +
+        ", connectionMaxIdleTime=" + conn.getMaxIdleTime() +
+        '}';
+
+    System.out.println("CREATING CRT HTTP WITH");
+    System.out.println(connectionSettings);
 
     AwsCrtHttpClient.Builder crtHttpClientBuilder = AwsCrtHttpClient.builder()
         .connectionTimeout(conn.getEstablishTimeout())
-        .maxConcurrency(conn.getMaxConnections());
+        .maxConcurrency(conn.getMaxConnections())
+        .connectionMaxIdleTime(conn.getMaxIdleTime());
 
+    final boolean connectionHealthConfigured = conf.getBoolean(CONNECTION_HEALTH_CONFIGURED,
+        false);
+
+
+
+    if (connectionHealthConfigured) {
+
+      Duration minimumThroughputTimeout = getDuration(conf, CONNECTION_MINIMUM_THROUGHPUT_TIMEOUT,
+          Duration.ofSeconds(200), TimeUnit.MILLISECONDS, Duration.ZERO);
+      Long connectionMinimumThroughput = conf.getLong(CONNECTION_MINIMUM_THROUGHPUT, 1000);
+
+      System.out.println("CONFIGURING CONNECTION HEALTH WITH");
+
+      String connectionHealthSettings = "ConnectionSettings{" +
+          "minimumThroughputTimeout=" + minimumThroughputTimeout +
+          ", connectionMinimumThroughput=" + connectionMinimumThroughput +
+          '}';
+
+      System.out.println(connectionHealthSettings);
+
+      ConnectionHealthConfiguration connectionHealthConfiguration =
+          ConnectionHealthConfiguration.builder()
+              .minimumThroughputInBps(connectionMinimumThroughput)
+              .minimumThroughputTimeout(minimumThroughputTimeout)
+              .build();
+
+      crtHttpClientBuilder.connectionHealthConfiguration(connectionHealthConfiguration);
+    }
 
     return crtHttpClientBuilder;
   }
