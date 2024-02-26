@@ -33,8 +33,6 @@ import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.http.async.SdkAsyncHttpClient;
-import software.amazon.awssdk.http.crt.AwsCrtAsyncHttpClient;
-import software.amazon.awssdk.http.crt.TcpKeepAliveConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 
 import org.apache.hadoop.classification.VisibleForTesting;
@@ -188,19 +186,6 @@ public final class AWSClientConfig {
     return httpClientBuilder;
   }
 
-  public static SdkAsyncHttpClient.Builder createAsyncCRTHTTPClientBuilder(Configuration conf) {
-    AwsCrtAsyncHttpClient.Builder httpClientBuilder = AwsCrtAsyncHttpClient.builder();
-
-    final ConnectionSettings conn = createConnectionSettings(conf);
-
-    httpClientBuilder
-            .connectionMaxIdleTime(conn.getMaxIdleTime())
-            .connectionTimeout(conn.getEstablishTimeout())
-            .maxConcurrency(conn.getMaxConnections());
-            //.tcpKeepAliveConfiguration(TcpKeepAliveConfiguration.builder().build());
-
-    return httpClientBuilder;
-  }
 
   /**
    * Configures the retry policy.

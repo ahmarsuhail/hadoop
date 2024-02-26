@@ -150,12 +150,7 @@ public class DefaultS3ClientFactory extends Configured
     LOG.info("Overriding client executor with unbounded thread pool");
     System.out.println("Overriding client executor with unbounded thread pool");
 
-    if (awsClient != null && awsClient.equals("CRT_HTTP")) {
-      LOG.info("Using CRT HTTP client");
-      System.out.println("Using CRT HTTP client");
-      httpClientBuilder = AWSClientConfig
-              .createAsyncCRTHTTPClientBuilder(conf);
-    } else if (awsClient != null && awsClient.equals("CRT_S3")) {
+    if (awsClient != null && awsClient.equals("CRT_S3")) {
       LOG.info("Using S3 CRT client");
       System.out.println("Using S3 CRT client");
       return createCRTAsyncClient(parameters, conf).build();
