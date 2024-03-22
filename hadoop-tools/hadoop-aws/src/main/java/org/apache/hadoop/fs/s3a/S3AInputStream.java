@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntFunction;
 
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -279,6 +280,12 @@ public class S3AInputStream extends FSInputStream implements  CanSetReadahead,
 
     GetObjectRequest request = client.newGetRequestBuilder(key)
         .range(S3AUtils.formatRange(targetPos, contentRangeFinish - 1))
+        .overrideConfiguration(
+            AwsRequestOverrideConfiguration
+                .builder()
+                .putHeader("Referer", S3AUtils.formatRange(targetPos, contentRangeFinish - 1))
+                .build()
+        )
         .applyMutation(changeTracker::maybeApplyConstraint)
         .build();
     long opencount = streamStatistics.streamOpened();
