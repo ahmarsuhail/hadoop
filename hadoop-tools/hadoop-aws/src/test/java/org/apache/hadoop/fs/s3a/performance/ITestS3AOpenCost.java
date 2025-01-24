@@ -450,8 +450,8 @@ public class ITestS3AOpenCost extends AbstractS3ACostTest {
    * @return true if the fs has prefetching enabled.
    */
   private boolean prefetching()  {
-    return getFileSystem().getConf().getBoolean(
-        PREFETCH_ENABLED_KEY, PREFETCH_ENABLED_DEFAULT);
+    return isPrefetchingEnabled(getFileSystem().getConf());
+
   }
 
   /**

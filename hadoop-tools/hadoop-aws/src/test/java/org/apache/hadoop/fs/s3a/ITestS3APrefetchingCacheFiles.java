@@ -80,10 +80,9 @@ public class ITestS3APrefetchingCacheFiles extends AbstractS3ACostTest {
     Configuration configuration = super.createConfiguration();
     if (isUsingDefaultExternalDataFile(configuration)) {
       S3ATestUtils.removeBaseAndBucketOverrides(configuration,
-          PREFETCH_ENABLED_KEY,
           ENDPOINT);
     }
-    configuration.setBoolean(PREFETCH_ENABLED_KEY, true);
+    enablePrefetching(configuration);
     // use a small block size unless explicitly set in the test config.
     configuration.setInt(PREFETCH_BLOCK_SIZE_KEY, BLOCK_SIZE);
     // patch buffer dir with a unique path for test isolation.

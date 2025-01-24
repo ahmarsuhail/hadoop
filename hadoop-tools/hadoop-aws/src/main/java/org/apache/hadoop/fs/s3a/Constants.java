@@ -21,6 +21,7 @@ package org.apache.hadoop.fs.s3a;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.Options;
+import org.apache.hadoop.fs.s3a.impl.streams.InputStreamType;
 import org.apache.hadoop.security.ssl.DelegatingSSLSocketFactory;
 
 import java.time.Duration;
@@ -1579,6 +1580,34 @@ public final class Constants {
    * Prefix of auth classes in AWS SDK V1.
    */
   public static final String AWS_AUTH_CLASS_PREFIX = "com.amazonaws.auth";
+
+  /**
+   * Input stream type: {@value}.
+   */
+  public static final String INPUT_STREAM_TYPE = "fs.s3a.input.stream.type";
+
+  /**
+   * The classic input stream: {@value}.
+   */
+  public static final String INPUT_STREAM_TYPE_CLASSIC =
+      InputStreamType.Classic.getName();
+
+  /**
+   * The prefetching input stream: "prefetch".
+   */
+  public static final String INPUT_STREAM_TYPE_PREFETCH = InputStreamType.Prefetch.getName();
+
+  /**
+   * The analytics input stream: "analytics".
+   */
+  public static final String INPUT_STREAM_TYPE_ANALYTICS =
+      InputStreamType.Analytics.getName();
+
+  /**
+   * The default input stream.
+   * Currently {@link #INPUT_STREAM_TYPE_CLASSIC}
+   */
+  public static final String INPUT_STREAM_TYPE_DEFAULT = InputStreamType.DEFAULT_STREAM_TYPE.getName();
 
   /**
    * Controls whether the prefetching input stream is enabled.
