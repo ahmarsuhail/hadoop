@@ -50,6 +50,7 @@ public class S3AInMemoryInputStream extends S3ARemoteInputStream {
    * Initializes a new instance of the {@code S3AInMemoryInputStream} class.
    *
    * @param context read-specific operation context.
+   * @param prefetchOptions options for prefetch stream
    * @param s3Attributes attributes of the S3 object being read.
    * @param client callbacks used for interacting with the underlying S3 client.
    * @param streamStatistics statistics for this stream.

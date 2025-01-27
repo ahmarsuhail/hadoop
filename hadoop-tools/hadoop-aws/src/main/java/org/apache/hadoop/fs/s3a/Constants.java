@@ -1587,7 +1587,7 @@ public final class Constants {
   public static final String INPUT_STREAM_TYPE = "fs.s3a.input.stream.type";
 
   /**
-   * The classic input stream: {@value}.
+   * The classic input stream.
    */
   public static final String INPUT_STREAM_TYPE_CLASSIC =
       InputStreamType.Classic.getName();
@@ -1607,7 +1607,8 @@ public final class Constants {
    * The default input stream.
    * Currently {@link #INPUT_STREAM_TYPE_CLASSIC}
    */
-  public static final String INPUT_STREAM_TYPE_DEFAULT = InputStreamType.DEFAULT_STREAM_TYPE.getName();
+  public static final String INPUT_STREAM_TYPE_DEFAULT =
+      InputStreamType.DEFAULT_STREAM_TYPE.getName();
 
   /**
    * Controls whether the prefetching input stream is enabled.

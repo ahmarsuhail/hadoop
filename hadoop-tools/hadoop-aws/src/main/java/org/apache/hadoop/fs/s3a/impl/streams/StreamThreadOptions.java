@@ -47,6 +47,7 @@ public class StreamThreadOptions {
    * @param sharedThreads Number of shared threads to included in the bounded pool.
    * @param streamThreads How many threads per stream, ignoring vector IO requirements.
    * @param createFuturePool Flag to enable creation of a future pool around the bounded thread pool.
+   * @param vectorSupported Flag for vectoredIO support
    */
   public StreamThreadOptions(final int sharedThreads,
       final int streamThreads,

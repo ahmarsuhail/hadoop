@@ -259,15 +259,15 @@ public class S3AStoreImpl
    * @param capability non-null, non-empty string to query the path for support.
    * @return known capabilities
    */
-    @Override
-    public boolean hasPathCapability(final Path path, final String capability) {
-      switch (toLowerCase(capability)) {
-      case StreamCapabilities.IOSTATISTICS:
-        return true;
-      default:
-        return hasCapability(capability);
-      }
+  @Override
+  public boolean hasPathCapability(final Path path, final String capability) {
+    switch (toLowerCase(capability)) {
+    case StreamCapabilities.IOSTATISTICS:
+      return true;
+    default:
+      return hasCapability(capability);
     }
+  }
 
 
   /**

@@ -52,8 +52,6 @@ import static org.apache.hadoop.fs.contract.ContractTestUtils.readStream;
 import static org.apache.hadoop.fs.contract.ContractTestUtils.skip;
 import static org.apache.hadoop.fs.contract.ContractTestUtils.writeTextFile;
 import static org.apache.hadoop.fs.s3a.Constants.CHECKSUM_VALIDATION;
-import static org.apache.hadoop.fs.s3a.Constants.PREFETCH_ENABLED_DEFAULT;
-import static org.apache.hadoop.fs.s3a.Constants.PREFETCH_ENABLED_KEY;
 import static org.apache.hadoop.fs.s3a.S3ATestUtils.*;
 import static org.apache.hadoop.fs.s3a.Statistic.STREAM_READ_BYTES_READ_CLOSE;
 import static org.apache.hadoop.fs.s3a.Statistic.STREAM_READ_OPENED;
