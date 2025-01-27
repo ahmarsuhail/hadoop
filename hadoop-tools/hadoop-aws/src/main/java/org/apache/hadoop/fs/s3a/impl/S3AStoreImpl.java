@@ -243,6 +243,11 @@ public class S3AStoreImpl implements S3AStore {
   }
 
   @Override
+  public S3AsyncClient getOrCreateCRTClient() throws IOException {
+    return clientManager.getOrCreateAsyncClient();
+  }
+
+  @Override
   public S3AsyncClient getOrCreateAsyncClient() throws IOException {
     return clientManager.getOrCreateAsyncClient();
   }

@@ -81,6 +81,9 @@ public interface S3ClientFactory {
   S3AsyncClient createS3AsyncClient(URI uri,
       S3ClientCreationParameters parameters) throws IOException;
 
+
+  S3AsyncClient createCRTClient(URI uri, S3ClientCreationParameters parameters) throws IOException;
+
   /**
    * Creates a new {@link S3TransferManager}.
    *

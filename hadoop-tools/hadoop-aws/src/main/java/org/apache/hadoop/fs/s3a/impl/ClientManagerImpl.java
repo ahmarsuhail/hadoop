@@ -91,6 +91,11 @@ public class ClientManagerImpl implements ClientManager {
   private final LazyAutoCloseableReference<S3AsyncClient> s3AsyncClient;
 
   /**
+   * Async CRT client, currently for use only with analytics streams.
+   */
+  private final LazyAutoCloseableReference<S3AsyncClient> s3CRTClient;
+
+  /**
    * Unencrypted S3 client.
    * This is used for unencrypted operations when CSE is enabled with V1 compatibility.
    */
@@ -121,6 +126,7 @@ public class ClientManagerImpl implements ClientManager {
     this.durationTrackerFactory = requireNonNull(durationTrackerFactory);
     this.s3Client = new LazyAutoCloseableReference<>(createS3Client());
     this.s3AsyncClient = new LazyAutoCloseableReference<>(createAyncClient());
+    this.s3CRTClient = new LazyAutoCloseableReference<>(createCRTClient());
     this.unencryptedS3Client = new LazyAutoCloseableReference<>(createUnencryptedS3Client());
     this.transferManager = new LazyAutoCloseableReference<>(createTransferManager());
 
@@ -148,6 +154,13 @@ public class ClientManagerImpl implements ClientManager {
         durationTrackerFactory,
         STORE_CLIENT_CREATION.getSymbol(),
         () -> clientFactory.createS3AsyncClient(getUri(), clientCreationParameters));
+  }
+
+  private CallableRaisingIOE<S3AsyncClient> createCRTClient() {
+    return trackDurationOfOperation(
+        durationTrackerFactory,
+        STORE_CLIENT_CREATION.getSymbol(),
+        () -> clientFactory.createCRTClient(getUri(), clientCreationParameters));
   }
 
   /**
@@ -195,6 +208,12 @@ public class ClientManagerImpl implements ClientManager {
   public synchronized S3AsyncClient getOrCreateAsyncClient() throws IOException {
     checkNotClosed();
     return s3AsyncClient.eval();
+  }
+
+  @Override
+  public S3AsyncClient getOrCreateCRTClient() throws IOException {
+    checkNotClosed();
+    return s3CRTClient.eval();
   }
 
   /**
