@@ -468,6 +468,11 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
+      <groupId>software.amazon.awssdk.crt</groupId>
+      <artifactId>aws-crt</artifactId>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
       <groupId>software.amazon.encryption.s3</groupId>
       <artifactId>amazon-s3-encryption-client-java</artifactId>
       <scope>provided</scope>

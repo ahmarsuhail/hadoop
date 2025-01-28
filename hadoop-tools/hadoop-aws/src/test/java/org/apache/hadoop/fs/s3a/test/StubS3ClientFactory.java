@@ -91,6 +91,14 @@ public final class StubS3ClientFactory implements S3ClientFactory {
   }
 
   @Override
+  public S3AsyncClient createS3CrtClient(URI uri, S3ClientCreationParameters parameters)
+      throws IOException {
+    asyncClientCreationCount.incrementAndGet();
+    launcher.apply();
+    return asyncClient;
+  }
+
+  @Override
   public S3TransferManager createS3TransferManager(final S3AsyncClient s3AsyncClient) {
     transferManagerCreationCount.incrementAndGet();
     return transferManager;

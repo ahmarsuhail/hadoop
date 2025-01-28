@@ -85,7 +85,8 @@ import static org.apache.hadoop.util.Preconditions.checkArgument;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class DefaultS3ClientFactory extends Configured
+public class
+DefaultS3ClientFactory extends Configured
     implements S3ClientFactory {
 
   private static final String REQUESTER_PAYS_HEADER_VALUE = "requester";
@@ -177,7 +178,7 @@ public class DefaultS3ClientFactory extends Configured
   }
 
   @Override
-  public S3AsyncClient createCRTClient(URI uri, S3ClientCreationParameters parameters) {
+  public S3AsyncClient createS3CrtClient(URI uri, S3ClientCreationParameters parameters) {
     Configuration conf = getConf();
 
     S3CrtAsyncClientBuilder s3CrtAsyncClientBuilder = S3CrtAsyncClient.builder();

@@ -1149,7 +1149,8 @@ public class S3AFileSystem extends FileSystem implements StreamCapabilities,
             conf.getBoolean(CHECKSUM_VALIDATION, CHECKSUM_VALIDATION_DEFAULT))
         .withClientSideEncryptionEnabled(isCSEEnabled)
         .withClientSideEncryptionMaterials(cseMaterials)
-        .withKMSRegion(conf.get(S3_ENCRYPTION_CSE_KMS_REGION));
+        .withKMSRegion(conf.get(S3_ENCRYPTION_CSE_KMS_REGION))
+        .withCrtEnabled(conf.getBoolean(CRT_CLIENT_ENABLED, DEFAULT_CRT_ENABLED));
 
     // this is where clients and the transfer manager are created on demand.
     return createClientManager(clientFactory, unencryptedClientFactory, parameters,
