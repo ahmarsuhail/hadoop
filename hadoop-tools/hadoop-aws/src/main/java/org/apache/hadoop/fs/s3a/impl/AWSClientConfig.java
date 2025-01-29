@@ -35,6 +35,11 @@ import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.crt.S3CrtConnectionHealthConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtHttpConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtProxyConfiguration;
+import software.amazon.awssdk.services.s3.crt.S3CrtRetryConfiguration;
 
 import org.apache.hadoop.classification.VisibleForTesting;
 import org.apache.hadoop.conf.Configuration;
@@ -160,6 +165,29 @@ public final class AWSClientConfig {
     NetworkBinding.bindSSLChannelMode(conf, httpClientBuilder);
 
     return httpClientBuilder;
+  }
+
+  /**
+   * Configure connection settings for the CRT client.
+   *
+   * @param s3CrtAsyncClientBuilder CRT client builder
+   * @param conf configuration
+   * @return S3CrtAsyncClientBuilder
+   */
+  public static S3CrtAsyncClientBuilder configureConnectionSettings(
+      S3CrtAsyncClientBuilder s3CrtAsyncClientBuilder, Configuration conf) {
+    final ConnectionSettings conn = createConnectionSettings(conf);
+
+    S3CrtHttpConfiguration.Builder s3CrtHttpConfiguration =
+        S3CrtHttpConfiguration.builder().connectionTimeout(conn.getEstablishTimeout());
+
+    S3CrtRetryConfiguration.Builder s3CrtRetryConfiguration = S3CrtRetryConfiguration.builder();
+    s3CrtRetryConfiguration.numRetries(
+        S3AUtils.intOption(conf, MAX_ERROR_RETRIES, DEFAULT_MAX_ERROR_RETRIES, 0));
+
+    return s3CrtAsyncClientBuilder.httpConfiguration(s3CrtHttpConfiguration.build())
+        .maxConcurrency(conn.getMaxConnections())
+        .retryConfiguration(s3CrtRetryConfiguration.build());
   }
 
   /**

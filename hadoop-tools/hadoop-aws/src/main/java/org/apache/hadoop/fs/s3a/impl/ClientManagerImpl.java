@@ -144,11 +144,17 @@ public class ClientManagerImpl implements ClientManager {
    * @return a callable which will create the client.
    */
   private CallableRaisingIOE<S3AsyncClient> createAyncClient() {
-    return trackDurationOfOperation(
-        durationTrackerFactory,
-        STORE_CLIENT_CREATION.getSymbol(),
-        () -> clientFactory.createS3AsyncClient(getUri(), clientCreationParameters));
+    return trackDurationOfOperation(durationTrackerFactory, STORE_CLIENT_CREATION.getSymbol(),
+        () -> {
+          if (clientCreationParameters.isCrtEnabled()) {
+            LOG.info("CRT client enabled!");
+            return clientFactory.createS3CrtClient(getUri(), clientCreationParameters);
+          } else {
+            return clientFactory.createS3AsyncClient(getUri(), clientCreationParameters);
+          }
+        });
   }
+
 
   /**
    * Create the function to create the unencrypted S3 client.
@@ -192,7 +198,7 @@ public class ClientManagerImpl implements ClientManager {
   }
 
   @Override
-  public synchronized S3AsyncClient getOrCreateAsyncClient() throws IOException {
+  public synchronized S3AsyncClient getOrCreateAsyncClient(boolean crtRequired) throws IOException {
     checkNotClosed();
     return s3AsyncClient.eval();
   }

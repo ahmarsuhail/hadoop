@@ -20,6 +20,7 @@ package org.apache.hadoop.fs.s3a;
 
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 
@@ -57,6 +58,13 @@ public class MockS3ClientFactory implements S3ClientFactory {
 
   @Override
   public S3AsyncClient createS3AsyncClient(URI uri, final S3ClientCreationParameters parameters) {
+    S3AsyncClient s3 = mock(S3AsyncClient.class);
+    return s3;
+  }
+
+  @Override
+  public S3AsyncClient createS3CrtClient(URI uri, S3ClientCreationParameters parameters)
+      throws IOException {
     S3AsyncClient s3 = mock(S3AsyncClient.class);
     return s3;
   }

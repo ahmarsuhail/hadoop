@@ -45,6 +45,8 @@ import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
 import software.amazon.awssdk.services.s3.S3BaseClientBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.S3CrtAsyncClientBuilder;
+import software.amazon.awssdk.services.s3.internal.crt.S3CrtAsyncClient;
 import software.amazon.awssdk.services.s3.multipart.MultipartConfiguration;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 
@@ -83,7 +85,8 @@ import static org.apache.hadoop.util.Preconditions.checkArgument;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class DefaultS3ClientFactory extends Configured
+public class
+DefaultS3ClientFactory extends Configured
     implements S3ClientFactory {
 
   private static final String REQUESTER_PAYS_HEADER_VALUE = "requester";
@@ -172,6 +175,22 @@ public class DefaultS3ClientFactory extends Configured
     }
 
     return s3AsyncClientBuilder.build();
+  }
+
+  @Override
+  public S3AsyncClient createS3CrtClient(URI uri, S3ClientCreationParameters parameters) {
+    Configuration conf = getConf();
+
+    S3CrtAsyncClientBuilder s3CrtAsyncClientBuilder = S3CrtAsyncClient.builder();
+
+    AWSClientConfig.configureConnectionSettings(s3CrtAsyncClientBuilder, conf);
+
+    s3CrtAsyncClientBuilder
+        .credentialsProvider(parameters.getCredentialSet());
+
+    configureCRTClientRegion(s3CrtAsyncClientBuilder, parameters, conf);
+
+    return s3CrtAsyncClientBuilder.build();
   }
 
   @Override
@@ -267,6 +286,44 @@ public class DefaultS3ClientFactory extends Configured
     clientOverrideConfigBuilder.retryPolicy(retryPolicyBuilder.build());
 
     return clientOverrideConfigBuilder;
+  }
+
+  /**
+   * Configures the region for the S3 CRT client
+   *
+   * @param builder S3 CRT client builder
+   * @param parameters parameter object
+   * @param conf conf object
+   */
+  private void configureCRTClientRegion(S3CrtAsyncClientBuilder builder, S3ClientCreationParameters parameters, Configuration conf) {
+    final String configuredRegion = parameters.getRegion();
+    Region region = null;
+    String origin = "";
+
+    // If the region was configured, set it.
+    if (configuredRegion != null && !configuredRegion.isEmpty()) {
+      origin = AWS_REGION;
+      region = Region.of(configuredRegion);
+    }
+
+    if (region != null) {
+      builder.region(region);
+    } else if (configuredRegion == null) {
+      // no region is configured, use US_EAST_2 as default.
+      region = Region.of(AWS_S3_DEFAULT_REGION);
+      builder.region(region);
+      origin = "cross region access fallback";
+    }
+
+    boolean isCrossRegionAccessEnabled = conf.getBoolean(AWS_S3_CROSS_REGION_ACCESS_ENABLED,
+        AWS_S3_CROSS_REGION_ACCESS_ENABLED_DEFAULT);
+    // s3 cross region access
+    if (isCrossRegionAccessEnabled) {
+      builder.crossRegionAccessEnabled(true);
+    }
+
+    LOG.debug("Setting region to {} from {} with cross region access {}",
+        region, origin, isCrossRegionAccessEnabled);
   }
 
   /**

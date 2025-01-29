@@ -81,6 +81,9 @@ public interface S3ClientFactory {
   S3AsyncClient createS3AsyncClient(URI uri,
       S3ClientCreationParameters parameters) throws IOException;
 
+
+  S3AsyncClient createS3CrtClient(URI uri, S3ClientCreationParameters parameters) throws IOException;
+
   /**
    * Creates a new {@link S3TransferManager}.
    *
@@ -201,6 +204,11 @@ public interface S3ClientFactory {
      * Is FIPS enabled?
      */
     private boolean fipsEnabled;
+
+    /**
+     * Is CRT enabled?
+     */
+    private boolean crtEnabled;
 
     /**
      * List of execution interceptors to include in the chain
@@ -576,6 +584,24 @@ public interface S3ClientFactory {
      */
     public S3ClientCreationParameters withFipsEnabled(final boolean value) {
       fipsEnabled = value;
+      return this;
+    }
+
+    /**
+     * Get the crt enabled flag.
+     * @return is crt enabled
+     */
+    public boolean isCrtEnabled() {
+      return crtEnabled;
+    }
+
+    /**
+     * Set builder value.
+     * @param value new value
+     * @return the builder
+     */
+    public S3ClientCreationParameters withCrtEnabled(final boolean value) {
+      crtEnabled = value;
       return this;
     }
   }

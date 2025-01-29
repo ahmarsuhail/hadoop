@@ -1780,4 +1780,15 @@ public final class Constants {
    * Value: {@value}.
    */
   public static final String S3A_IO_RATE_LIMIT = "fs.s3a.io.rate.limit";
+
+  /**
+   * Flag to enable the CRT client. Value {@value}.
+   */
+  public static final String CRT_CLIENT_ENABLED = "fs.s3a.crt.enabled";
+
+  /**
+   * Default value for {@link #DEFAULT_CRT_ENABLED}.
+   * Value: {@value}.
+   */
+  public static final boolean DEFAULT_CRT_ENABLED = false;
 }
