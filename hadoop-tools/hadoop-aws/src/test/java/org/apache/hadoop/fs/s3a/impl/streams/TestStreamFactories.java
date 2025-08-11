@@ -29,6 +29,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.VectoredIOContext;
 import org.apache.hadoop.fs.s3a.prefetch.PrefetchingInputStreamFactory;
 import org.apache.hadoop.test.AbstractHadoopTestBase;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import static org.apache.hadoop.fs.s3a.Constants.INPUT_STREAM_CUSTOM_FACTORY;
 import static org.apache.hadoop.fs.s3a.Constants.INPUT_STREAM_TYPE;
@@ -331,7 +332,7 @@ public class TestStreamFactories extends AbstractHadoopTestBase {
   private static final class Callbacks implements ObjectInputStreamFactory.StreamFactoryCallbacks {
 
     @Override
-    public S3AsyncClient getOrCreateAsyncClient(final boolean requireCRT) throws IOException {
+    public S3Client getOrCreateSyncClient() throws IOException {
       throw new UnsupportedOperationException("not implemented");
     }
 

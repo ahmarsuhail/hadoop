@@ -25,6 +25,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 import org.apache.hadoop.fs.s3a.Statistic;
 import org.apache.hadoop.fs.StreamCapabilities;
 import org.apache.hadoop.service.Service;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * A Factory for {@link ObjectInputStream} streams.
@@ -81,11 +82,10 @@ public interface ObjectInputStreamFactory
 
     /**
      * Get the Async S3Client, raising a failure to create as an IOException.
-     * @param requireCRT is the CRT required.
      * @return the Async S3 client
      * @throws IOException failure to create the client.
      */
-    S3AsyncClient getOrCreateAsyncClient(boolean requireCRT) throws IOException;
+    S3Client getOrCreateSyncClient() throws IOException;
 
     void incrementFactoryStatistic(Statistic statistic);
   }
